@@ -1,0 +1,18 @@
+GNU Octave version 9.4.0
+Loaded nile (663 obs) and sealevel (1558 obs)
+
+nile (n=663):
+  m = 35: d_hat = 0.7138, se = 0.1466
+  m = 49: d_hat = 0.4723, se = 0.1239
+  m = 68: d_hat = 0.4918, se = 0.1052
+  m = 94: d_hat = 0.3903, se = 0.0895
+  m = 180: d_hat = 0.5074, se = 0.0647
+
+sealevel (n=1558):
+  m = 57: d_hat = 0.6153, se = 0.1149
+  m = 82: d_hat = 0.5114, se = 0.0958
+  m = 118: d_hat = 0.4332, se = 0.0799
+  m = 171: d_hat = 0.4311, se = 0.0663
+  m = 358: d_hat = 0.7199, se = 0.0459
+
+Results saved to octave_veltaper.json

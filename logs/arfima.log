@@ -1,0 +1,5 @@
+Simulating ARFIMA(0,0.4,0) with n=500 observations...
+True d:           0.4
+Estimated d:      0.3786
+Standard error:   0.0784
+Estimation error: 0.0214

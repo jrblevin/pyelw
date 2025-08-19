@@ -1,0 +1,15 @@
+__pycache__/
+*$py.class
+*.py[cod]
+build/
+dist/
+*.egg-info/
+.vscode/
+.DS_Store
+data/hc/
+references/
+raw_data/
+logs/
+*.log
+*.dat
+.coverage

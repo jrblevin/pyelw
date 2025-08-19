@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyelw"
+version = "0.9.0"
+authors = [
+    {name = "Jason R. Blevins", email = "blevins.141@osu.edu"},
+]
+description = "Exact Local Whittle Estimation for Long Memory Time Series"
+readme = "README.md"
+license = {text = "BSD-3-Clause"}
+requires-python = ">=3.13"
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+keywords = [
+    "fractional integration",
+    "long memory",
+    "exact local Whittle estimation",
+    "ARFIMA",
+    "econometrics",
+    "time-series",
+]
+dependencies = [
+    "numpy",
+]
+
+[project.urls]
+Homepage = "https://github.com/jrblevin/pyelw"
+Repository = "https://github.com/jrblevin/pyelw.git"
+Documentation = "https://github.com/jrblevin/pyelw#readme"
+"Bug Tracker" = "https://github.com/jrblevin/pyelw/issues"
+
+[project.optional-dependencies]
+test = [
+    "pytest~=8.4.1",
+    "scipy~=1.16.1",
+    "pandas~=2.3.1",
+    "pandas-datareader~=0.10.0",
+]
+dev = [
+    "pytest~=8.4.1",
+    "scipy~=1.16.1",
+    "pandas~=2.3.1",
+    "pandas-datareader~=0.10.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["pyelw*"]
+exclude = ["tests*", "examples*", "references*", "logs*", "raw_data*", "data*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
