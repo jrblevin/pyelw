@@ -130,11 +130,11 @@ def test_lw_baum_et_al_sealevel(estimator, spec, sealevel_data):
     )
 
 
-@pytest.mark.parametrize("d_true", [-0.3, 0.0, 0.2, 0.4])
+@pytest.mark.parametrize("d_true", [-0.4, -0.3, 0.0, 0.2, 0.4])
 def test_lw_arfima(estimator, d_true):
     """Test estimation with ARFIMA(0,d,0) processes."""
     n = 20000
-    seed = 42 + int(d_true * 100)  # Different seed for each d_true
+    seed = 1000 + int(d_true * 100)  # Different seed for each d_true
     x = arfima(n, d_true, seed=seed)
     result = estimator.estimate(x, m=int(n**0.7))
 
