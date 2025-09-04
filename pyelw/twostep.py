@@ -149,7 +149,7 @@ class TwoStepELW:
                  m: Optional[int] = None,
                  bounds: Optional[Tuple[float, float]] = (-1.0, 2.2),
                  taper: Optional[str] = None,
-                 detrend_order: Optional[int] = 0,
+                 trend_order: Optional[int] = 0,
                  verbose: Optional[bool] = False) -> Dict[str, Any]:
         """
         Two-step exact local Whittle estimation.
@@ -165,7 +165,7 @@ class TwoStepELW:
         taper : str, optional
             Type of taper for Stage 1. See the options in the LW.estimate() method.
             If None, uses 'hc'.
-        detrend_order : int, optional
+        trend_order : int, optional
             Order of polynomial detrending
         verbose : bool, optional
             Print diagnostic information
@@ -181,11 +181,11 @@ class TwoStepELW:
             taper = 'hc'
 
         # Step 0: Detrending
-        if verbose and detrend_order > 0:
-            print(f"Detrending with polynomial order {detrend_order}")
+        if verbose and trend_order > 0:
+            print(f"Detrending with polynomial order {trend_order}")
         elif verbose:
             print("Demeaning data (detrend order 0)")
-        X_detrended = self.detrend(X, detrend_order)
+        X_detrended = self.detrend(X, trend_order)
 
         # Number of frequencies
         if m is None:
@@ -235,5 +235,5 @@ class TwoStepELW:
             'objective_step1': result_step1.get('objective', np.nan),
             'nfev': result_step2.nfev,
             'objective': result_step2.fun,
-            'detrend_order': detrend_order,
+            'trend_order': trend_order,
         }

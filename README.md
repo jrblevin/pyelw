@@ -46,7 +46,7 @@ print(f"d_ELW = {result['d_hat']}")
 
 # Two step ELW (Shimotsu, 2010)
 elw2s = TwoStepELW()
-result = elw2s.estimate(series, m=m, detrend_order=1)
+result = elw2s.estimate(series, m=m, trend_order=1)
 print(f"d_2ELW = {result['d_hat']}")
 ```
 
@@ -285,7 +285,7 @@ m = int(n**0.65)
 print("\nEstimating long memory parameter...")
 print(f"Sample size: {n}")
 print(f"Number of frequencies: {m}")
-result = estimator.estimate(log_gdp, m=m, detrend_order=1, verbose=True)
+result = estimator.estimate(log_gdp, m=m, trend_order=1, verbose=True)
 
 # Display results
 print("\nTwo-Step ELW Results:")

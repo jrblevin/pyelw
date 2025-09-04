@@ -61,7 +61,7 @@ for d_true in d_list:
             x = arfima(n, d_true, phi=rho, sigma=1.0, seed=seed, burnin=2*n)
 
             # Apply 2-step ELW estimator
-            result = elw2.estimate(x, m=m, bounds=(-1.0, 3.0), detrend_order=0)
+            result = elw2.estimate(x, m=m, bounds=(-1.0, 3.0), trend_order=0)
             estimates[rep] = result['d_hat']
 
         # Calculate bias and variance

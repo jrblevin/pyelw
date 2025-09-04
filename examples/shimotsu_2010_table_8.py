@@ -78,7 +78,7 @@ for series_code, series_label in series_mapping:
 
     # Two-Step ELW
     m_elw = round(n_obs**0.70)
-    elw_result = tselw_estimator.estimate(series_data, m=m_elw, detrend_order=1)
+    elw_result = tselw_estimator.estimate(series_data, m=m_elw, trend_order=1)
     d_elw = elw_result['d_hat']
     se_elw = elw_result['se']
 

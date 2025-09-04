@@ -125,13 +125,13 @@ def test_r_elw2s_baseline(case, nile_data, sealevel_data, estimator):
     python_taper = taper_map[expected_taper]
 
     # Run Local Whittle estimation
-    result = estimator.estimate(series, m=m, taper=python_taper, detrend_order=trend_order, verbose=False)
+    result = estimator.estimate(series, m=m, taper=python_taper, trend_order=trend_order, verbose=False)
 
     # Check basic properties
     assert result['n'] == n, f"Sample size mismatch for {case['name']}: {result['n']} vs {n}"
     assert result['m'] == m, f"Bandwidth mismatch for {case['name']}: {result['m']} vs {m}"
     assert result['taper'] == python_taper, f"Taper mismatch for {case['name']}: {result['taper']} vs {python_taper}"
-    assert result['detrend_order'] == trend_order, f"trend_order mismatch for {case['name']}: {result['detrend_order']} vs {trend_order}"
+    assert result['trend_order'] == trend_order, f"trend_order mismatch for {case['name']}: {result['trend_order']} vs {trend_order}"
 
     # Check that results are finite
     assert np.isfinite(result['d_hat']), f"Non-finite d_hat for {case['name']}"

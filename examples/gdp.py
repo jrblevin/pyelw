@@ -49,7 +49,7 @@ plt.show()
 # Two-Step ELW estimation with linear detrending
 estimator = TwoStepELW()
 m = int(n**0.65)  # Choose bandwidth/number of frequencies
-result = estimator.estimate(log_gdp, m=m, detrend_order=1)
+result = estimator.estimate(log_gdp, m=m, trend_order=1)
 ci_lower = result['d_hat'] - 1.96 * result['se']
 ci_upper = result['d_hat'] + 1.96 * result['se']
 
