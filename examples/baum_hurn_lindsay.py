@@ -68,14 +68,12 @@ for dataset, treatment, data, powers in specs:
         m = int(n**alpha)
         for estimator in ['LW', 'ELW']:
             if estimator == 'LW':
-                lw = LW()
-                result = lw.estimate(data, m=m)
+                model = LW().fit(data, m=m)
             elif estimator == 'ELW':
-                elw = ELW()
-                result = elw.estimate(data, m=m)
+                model = ELW().fit(data, m=m)
 
             key = (dataset, treatment, estimator, alpha)
-            pyelw_results[key] = (result['d_hat'], result['se'], result['ase'])
+            pyelw_results[key] = (model.d_hat_, model.se_, model.ase_)
 
 # Print comparison table
 print("Baum, Hurn, and Lindsay (2020) Replication")

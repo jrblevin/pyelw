@@ -553,3 +553,133 @@ def test_lw_invalid_taper():
     lw = LW()
     with pytest.raises(ValueError, match="Unknown taper type"):
         lw.estimate(x, m=15, taper='invalid')
+
+
+def test_constructor_defaults():
+    """Test constructor with default parameters."""
+    lw = LW()
+    assert lw.bounds == (-1.0, 2.2)
+    assert lw.taper == 'none'
+    assert lw._default_bounds == (-1.0, 2.2)
+    assert lw._default_taper == 'none'
+
+
+def test_constructor_custom_params():
+    """Test constructor with custom parameters."""
+    lw = LW(bounds=(-0.5, 1.5), taper='hc')
+    assert lw.bounds == (-0.5, 1.5)
+    assert lw.taper == 'hc'
+
+
+def test_repr_default_params():
+    """Test __repr__ with default parameters."""
+    lw = LW()
+    assert repr(lw) == "LW()"
+
+
+def test_repr_custom_params():
+    """Test __repr__ with custom parameters."""
+    lw = LW(taper='hc')
+    assert repr(lw) == "LW(taper='hc')"
+
+    lw = LW(bounds=(-0.5, 1.5), taper='kolmogorov')
+    assert repr(lw) == "LW(bounds=(-0.5, 1.5), taper='kolmogorov')"
+
+
+def test_get_params():
+    """Test get_params method."""
+    lw = LW(bounds=(-0.5, 1.5), taper='hc', diff=2)
+    params = lw.get_params()
+    expected = {"bounds": (-0.5, 1.5), "taper": "hc", "diff": 2}
+    assert params == expected
+
+
+def test_set_params():
+    """Test set_params method."""
+    lw = LW()
+    lw.set_params(bounds=(-0.5, 1.5), taper='hc')
+    assert lw.bounds == (-0.5, 1.5)
+    assert lw.taper == 'hc'
+
+
+def test_set_params_returns_self():
+    """Test that set_params returns self for method chaining."""
+    lw = LW()
+    result = lw.set_params(taper='hc')
+    assert result is lw
+
+
+def test_set_params_invalid_parameter():
+    """Test set_params with invalid parameter raises ValueError."""
+    lw = LW()
+    with pytest.raises(ValueError, match="Invalid parameter invalid_param"):
+        lw.set_params(invalid_param="value")
+
+
+def test_fit_basic(nile_data):
+    """Test basic fit functionality."""
+    lw = LW()
+    result = lw.fit(nile_data, m=20)
+
+    # Should return self
+    assert result is lw
+
+    # Should have fitted attributes
+    assert hasattr(lw, 'd_hat_')
+    assert hasattr(lw, 'se_')
+    assert hasattr(lw, 'ase_')
+    assert hasattr(lw, 'n_')
+    assert hasattr(lw, 'm_')
+    assert hasattr(lw, 'objective_')
+    assert hasattr(lw, 'nfev_')
+    assert hasattr(lw, 'method_')
+    assert hasattr(lw, 'taper_')
+    assert hasattr(lw, 'diff_')
+
+    # Check values are reasonable
+    assert lw.n_ == len(nile_data)
+    assert lw.m_ == 20
+    assert np.isfinite(lw.d_hat_)
+    assert lw.taper_ == 'none'
+    assert lw.diff_ == 0
+
+
+def test_fit_with_hc_taper(nile_data):
+    """Test fit with HC taper."""
+    lw = LW(taper='hc', diff=2)
+    lw.fit(nile_data, m=20)
+
+    assert lw.taper_ == 'hc'
+    assert lw.diff_ == 2
+    assert lw.n_ == len(nile_data) - 2  # After differencing
+
+
+def test_fit_method_chaining(nile_data):
+    """Test method chaining with fit."""
+    d_hat = LW(taper='hc').fit(nile_data, m=20).d_hat_
+    assert np.isfinite(d_hat)
+
+
+def test_backward_compatibility_estimate(nile_data):
+    """Test that estimate() API works."""
+    lw = LW()
+    result = lw.estimate(nile_data, m=20, bounds=(-0.5, 1.5), taper='hc')
+
+    # Should return dict
+    assert isinstance(result, dict)
+    assert 'd_hat' in result
+    assert 'se' in result
+    assert result['taper'] == 'hc'
+    assert 'method' in result
+
+
+def test_estimate_parameter_override(nile_data):
+    """Test that estimate() parameters temporarily override constructor params."""
+    lw = LW(bounds=(-1.0, 2.2), taper='none')
+
+    # Use different parameters in estimate()
+    result = lw.estimate(nile_data, m=20, bounds=(-0.5, 1.5), taper='hc')
+
+    # Constructor params should be restored
+    assert lw.bounds == (-1.0, 2.2)
+    assert lw.taper == 'none'

@@ -43,21 +43,20 @@ plt.show()
 # ------------------------------------------------------------------------
 
 # Estimate the memory parameter via ELW
-elw = ELW()
-m = int(n**0.65)  # Number of frequencies
-result = elw.estimate(x, m=m)
+m = int(n**0.65)
+elw = ELW().fit(x, m=m)
 
 # Display results
 print(f"True d:           {d_true}")
-print(f"Estimated d:      {result['d_hat']:.4f}")
-print(f"Standard error:   {result['se']:.4f}")
-print(f"Estimation error: {abs(result['d_hat'] - d_true):.4f}")
+print(f"Estimated d:      {elw.d_hat_:.4f}")
+print(f"Standard error:   {elw.se_:.4f}")
+print(f"Estimation error: {abs(elw.d_hat_ - d_true):.4f}")
 
 # ------------------------------------------------------------------------
 
 # Compare different bandwidth choices
 for alpha in [0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85]:
     m = int(n**alpha)
-    result = elw.estimate(x, m=m)
+    elw = ELW().fit(x, m=m)
     print(f"alpha={alpha:4.2f}, m={m:3d}: "
-          f"{result['d_hat']:.4f} ({result['se']:.4f})")
+          f"{elw.d_hat_:.4f} ({elw.se_:.4f})")

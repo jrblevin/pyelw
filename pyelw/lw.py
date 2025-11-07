@@ -12,6 +12,44 @@ class LW:
     as well as the tapered local Whittle estimators of Velasco (1999) and
     Hurvich and Chen (2000).
 
+    Parameters
+    ----------
+    bounds : tuple of float, default=(-1.0, 2.2)
+        Lower and upper bounds for optimization of memory parameter d.
+    taper : str, default='none'
+        Type of taper to apply. Options:
+        - 'none': No taper (standard local Whittle)
+        - 'kolmogorov': Zhurbenko-Kolmogorov taper (Velasco, 1999)
+        - 'cosine': Cosine bell taper (Velasco, 1999)
+        - 'bartlett': Triangular (Bartlett) taper (Velasco, 1999)
+        - 'hc': Complex cosine bell taper of Hurvich and Chen (2000)
+
+    diff : int, default=1
+        Number of times to difference for HC taper. Only used when taper='hc'.
+
+    Attributes
+    ----------
+    d_hat_ : float
+        Estimated memory parameter.
+    se_ : float
+        Standard error of the estimate.
+    ase_ : float
+        Asymptotic standard error.
+    n_ : int
+        Sample size.
+    m_ : int
+        Number of frequencies used.
+    objective_ : float
+        Final objective function value.
+    nfev_ : int
+        Number of function evaluations.
+    method_ : str
+        Estimation method used
+    taper_ : str
+        Actual taper used during estimation.
+    diff_ : int
+        Number of differences applied (for taper='hc').
+
     References
     ----------
     Robinson, P. M. (1995). Gaussian Semiparametric Estimation of Long
@@ -25,17 +63,14 @@ class LW:
     21, 155--180.
     """
 
-    def __init__(self, taper: Optional[str] = 'none'):
-        """
-        Initialize Local Whittle estimator.
+    def __init__(self, bounds=(-1.0, 2.2), taper='none', diff=1):
+        self._default_bounds = (-1.0, 2.2)
+        self._default_taper = 'none'
+        self._default_diff = 1
 
-        Parameters
-        ----------
-        taper : str, optional
-            Default taper to use. Options: 'none' (default), 'kolmogorov',
-            'cosine', 'bartlett', 'hc'
-        """
+        self.bounds = bounds
         self.taper = taper
+        self.diff = diff
 
     def _hc_dft(self, y: np.ndarray, max_j: Optional[int] = None):
         r"""
@@ -89,12 +124,7 @@ class LW:
         m : int
             Number of frequencies to use in estimation
         taper : str, optional
-            Type of taper to apply. Options:
-            - 'none': No taper (standard local Whittle)
-            - 'kolmogorov': Zhurbenko-Kolmogorov taper used in Velasco (1999)
-            - 'cosine': Cosine bell taper discussed in Velasco (1999)
-            - 'bartlett': Triangular (Bartlett) taper discussed in Velasco (1999)
-            - 'hc': Complex cosine bell taper of Hurvich-Chen (2000)
+            Type of taper to apply.
         diff : int, optional
             Number of times to difference data (only for 'hc' taper)
 
@@ -362,13 +392,7 @@ class LW:
         except (OverflowError, ZeroDivisionError, ValueError, KeyError):
             return np.float64(np.inf)
 
-    def estimate(self,
-                 X: np.ndarray,
-                 m: Optional[int] = None,
-                 bounds: Optional[Tuple[float, float]] = (-1.0, 2.2),
-                 taper: Optional[str] = None,
-                 diff: Optional[int] = 1,
-                 verbose: Optional[bool] = False) -> Dict[str, Any]:
+    def fit(self, X, m=None, verbose=False):
         """
         Local Whittle estimation of memory parameter d.
 
@@ -377,61 +401,57 @@ class LW:
         X : np.ndarray
             Time series data
         m : int, optional
-            Number of frequencies to use
-        bounds: tuple[float, float], optional
-            Lower and upper bounds for golden section search
-        taper : str, optional
-            Type of taper. If None, uses the taper specified in __init__.
-            Options: 'none', 'kolmogorov', 'cosine', 'bartlett', 'hc'
-        diff : int, optional
-            Number of times to difference for HC taper (default 1)
-        verbose : bool, optional
-            Print diagnostic information
+            Number of frequencies to use. If None, uses n^0.65.
+        verbose : bool, default=False
+            Print diagnostic information during fitting.
 
         Returns
         -------
-        Dict[str, Any]
-            Dictionary with estimation results
+        self : object
+            Returns the fitted estimator.
         """
+        X = np.asarray(X, dtype=np.float64).flatten()
+
         # Setup data
         n = len(X)
         if m is None:
             m = int(n**0.65)
 
-        # Use default taper if none specified
-        if taper is None:
-            taper = self.taper
-
         # Prepare data with taper and differencing
-        data = self.prepare_data(X, m, taper, diff)
+        data = self.prepare_data(X, m, self.taper, self.diff)
 
         # Define objective function based on taper type
-        if taper == 'none':
+        if self.taper == 'none':
             method = 'lw'
 
             def objective_func(d: float) -> float:
                 return self.objective(d, data)
 
-        elif taper in ['kolmogorov', 'cosine', 'bartlett']:
+        elif self.taper in ['kolmogorov', 'cosine', 'bartlett']:
             method = 'lw_velasco'
 
             def objective_func(d: float) -> float:
                 return self.objective_velasco(d, data)
 
-        elif taper == 'hc':
+        elif self.taper == 'hc':
             method = 'lw_hc'
 
             # Adjust bounds for differencing
-            bounds = (bounds[0] - diff, bounds[1] - diff)
+            bounds = (self.bounds[0] - self.diff, self.bounds[1] - self.diff)
 
             def objective_func(d: float) -> float:
                 return self.objective_hc(d, data)
 
         else:
-            raise ValueError(f"Unknown taper type: {taper}. Supported: 'none', 'kolmogorov', 'cosine', 'bartlett', 'hc'")
+            raise ValueError(f"Unknown taper type: {self.taper}. "
+                             "Supported: 'none', 'kolmogorov', 'cosine', 'bartlett', 'hc'")
 
         # Use golden section search with bounds
-        result = golden_section_search(objective_func, brack=bounds)
+        if self.taper == 'hc':
+            result = golden_section_search(objective_func, brack=bounds)
+        else:
+            result = golden_section_search(objective_func, brack=self.bounds)
+
         if not result.success:
             if verbose:
                 print(f"Warning: {result.message}")
@@ -441,14 +461,14 @@ class LW:
         else:
             d_hat = result.x
             # For HC, add diff to 'undo' first differencing
-            if taper == 'hc':
-                d_hat = d_hat + diff
+            if self.taper == 'hc':
+                d_hat = d_hat + self.diff
             final_obj = result.fun
 
         # Standard errors
         if np.isfinite(d_hat):
 
-            if taper == 'none':
+            if self.taper == 'none':
 
                 # Standard local Whittle standard error
                 freqs = data['freqs']
@@ -472,7 +492,7 @@ class LW:
                 # Asymptotic standard error
                 ase = 1 / (2 * np.sqrt(m))
 
-            elif taper in ['kolmogorov', 'cosine', 'bartlett']:
+            elif self.taper in ['kolmogorov', 'cosine', 'bartlett']:
 
                 # Velasco (1999, p. 100)
                 p = data['p']
@@ -480,7 +500,7 @@ class LW:
                 ase = np.sqrt(p * Phi / (4 * m))
                 se = ase
 
-            elif taper == 'hc':
+            elif self.taper == 'hc':
 
                 # Asymptotic standard errors: Hurvich and Chen (2020, Theorem 2)
                 ase = np.sqrt(1.5 / (4 * m))
@@ -495,15 +515,105 @@ class LW:
             se = np.nan
             ase = np.nan
 
-        return {
-            'n': data['n'],
-            'm': data['m'],
-            'd_hat': d_hat,
-            'se': se,
-            'ase': ase,
-            'objective': final_obj,
-            'nfev': result.nfev,
-            'method': method,
-            'taper': taper,
-            'diff': diff if taper == 'hc' else 0,
-        }
+        # Store fitted attributes
+        self.n_ = data['n']
+        self.m_ = data['m']
+        self.d_hat_ = d_hat
+        self.se_ = se
+        self.ase_ = ase
+        self.objective_ = final_obj
+        self.nfev_ = result.nfev
+        self.method_ = method
+        self.taper_ = self.taper
+        self.diff_ = self.diff if self.taper == 'hc' else 0
+
+        return self
+
+    def estimate(self,
+                 X: np.ndarray,
+                 m: Optional[int] = None,
+                 bounds: Optional[Tuple[float, float]] = None,
+                 taper: Optional[str] = None,
+                 diff: Optional[int] = 1,
+                 verbose: Optional[bool] = False) -> Dict[str, Any]:
+        """
+        Local Whittle estimation of memory parameter d.
+
+        This method provides backward compatibility with the original API.
+        For new code, consider using fit() followed by accessing fitted
+        attributes directly.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Time series data
+        m : int, optional
+            Number of frequencies to use
+        bounds: tuple[float, float], optional
+            Lower and upper bounds for golden section search.
+            If provided, temporarily overrides constructor bounds.
+        taper : str, optional
+            Type of taper. If provided, temporarily overrides constructor taper.
+            Options: 'none', 'kolmogorov', 'cosine', 'bartlett', 'hc'
+        diff : int, optional
+            Number of times to difference for HC taper (default 1)
+        verbose : bool, optional
+            Print diagnostic information
+
+        Returns
+        -------
+        Dict[str, Any]
+            Dictionary with estimation results
+        """
+        # Temporarily store original parameters
+        original_bounds = self.bounds
+        original_taper = self.taper
+        original_diff = self.diff
+
+        # Override parameters if provided
+        if bounds is not None:
+            self.bounds = bounds
+        if taper is not None:
+            self.taper = taper
+        if diff is not None:
+            self.diff = diff
+
+        try:
+            # Fit the model
+            self.fit(X, m=m, verbose=verbose)
+
+            # Return results as dictionary for backward compatibility
+            return {
+                'n': self.n_,
+                'm': self.m_,
+                'd_hat': self.d_hat_,
+                'se': self.se_,
+                'ase': self.ase_,
+                'objective': self.objective_,
+                'nfev': self.nfev_,
+                'method': self.method_,
+                'taper': self.taper_,
+                'diff': self.diff_,
+            }
+        finally:
+            # Restore original parameters
+            self.bounds = original_bounds
+            self.taper = original_taper
+            self.diff = original_diff
+
+    def __repr__(self):
+        """Representation showing non-default parameters."""
+        params = []
+
+        if self.bounds != self._default_bounds:
+            params.append(f"bounds={self.bounds}")
+        if self.taper != self._default_taper:
+            params.append(f"taper='{self.taper}'")
+        if self.diff != self._default_diff:
+            params.append(f"diff={self.diff}")
+
+        params_str = ", ".join(params)
+        return f"LW({params_str})"
+
+    def __str__(self):
+        return self.__repr__()

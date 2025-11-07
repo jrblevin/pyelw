@@ -10,6 +10,45 @@ class TwoStepELW:
     """
     Two-step Exact Local Whittle estimator of Shimotsu (2010).
 
+    Parameters
+    ----------
+    bounds : tuple of float, default=(-1.0, 2.2)
+        Lower and upper bounds for optimization of memory parameter d.
+    taper : str, default='hc'
+        Type of taper for Stage 1 estimation. Options:
+        - 'none': Standard local Whittle
+        - 'kolmogorov': Zhurbenko-Kolmogorov taper (Velasco, 1999)
+        - 'cosine': Cosine bell taper (Velasco, 1999)
+        - 'bartlett': Triangular (Bartlett) taper (Velasco, 1999)
+        - 'hc': Complex cosine bell taper (Hurvich and Chen, 2000)
+    trend_order : int, default=0
+        Order of polynomial detrending. 0 = demean only, 1 = remove linear trend, etc.
+
+    Attributes
+    ----------
+    d_hat_ : float
+        Final (Stage 2) estimated memory parameter.
+    se_ : float
+        Final standard error of the estimate.
+    ase_ : float
+        Final asymptotic standard error.
+    d_step1_ : float
+        Stage 1 estimated memory parameter.
+    se_step1_ : float
+        Stage 1 standard error.
+    n_ : int
+        Sample size.
+    m_ : int
+        Number of frequencies used.
+    objective_ : float
+        Final (Stage 2) objective function value.
+    objective_step1_ : float
+        Stage 1 objective function value.
+    nfev_ : int
+        Stage 2 number of function evaluations.
+    nfev_step1_ : int
+        Stage 1 number of function evaluations.
+
     References
     ----------
     Shimotsu, K. (2010). Exact Local Whittle Estimation of Fractional
@@ -23,6 +62,16 @@ class TwoStepELW:
     Velasco, C. (1999). Gaussian Semiparametric Estimation for Non-Stationary
     Time Series. _Journal of Time Series Analysis_ 20, 87--126.
     """
+
+    def __init__(self, bounds=(-1.0, 2.2), taper='hc', trend_order=0):
+        self.bounds = bounds
+        self.taper = taper
+        self.trend_order = trend_order
+
+        # Store defaults for __repr__
+        self._default_bounds = (-1.0, 2.2)
+        self._default_taper = 'hc'
+        self._default_trend_order = 0
 
     def weight_function(self, d: float) -> float:
         """
@@ -145,47 +194,33 @@ class TwoStepELW:
         r = np.log(g) - 2 * d * np.sum(np.log(lam_trunc)) / m
         return float(r.real)
 
-    def estimate(self, X: np.ndarray,
-                 m: Optional[int] = None,
-                 bounds: Optional[Tuple[float, float]] = (-1.0, 2.2),
-                 taper: Optional[str] = None,
-                 trend_order: Optional[int] = 0,
-                 verbose: Optional[bool] = False) -> Dict[str, Any]:
+    def fit(self, X, m=None, verbose=False):
         """
-        Two-step exact local Whittle estimation.
+        Two-step exact local Whittle estimation of memory parameter d.
 
         Parameters
         ----------
         X : np.ndarray
-            Time series data
+            Time series data.
         m : int, optional
-            Number of frequencies to use. Default m = n^0.65.
-        bounds: tuple[float, float], optional
-            Lower and upper bounds for golden section search
-        taper : str, optional
-            Type of taper for Stage 1. See the options in the LW.estimate() method.
-            If None, uses 'hc'.
-        trend_order : int, optional
-            Order of polynomial detrending
-        verbose : bool, optional
-            Print diagnostic information
+            Number of frequencies to use. If None, uses n^0.65.
+        verbose : bool, default=False
+            Print diagnostic information during estimation.
 
         Returns
         -------
-        Dict[str, Any]
-            Two-step ELW estimation results
+        self : object
+            Returns the fitted estimator.
         """
         X = np.asarray(X, dtype=np.float64)
         n = len(X)
-        if taper is None:
-            taper = 'hc'
 
         # Step 0: Detrending
-        if verbose and trend_order > 0:
-            print(f"Detrending with polynomial order {trend_order}")
+        if verbose and self.trend_order > 0:
+            print(f"Detrending with polynomial order {self.trend_order}")
         elif verbose:
             print("Demeaning data (detrend order 0)")
-        X_detrended = self.detrend(X, trend_order)
+        X_detrended = self.detrend(X, self.trend_order)
 
         # Number of frequencies
         if m is None:
@@ -195,12 +230,14 @@ class TwoStepELW:
 
         # Stage 1: Tapered local Whittle estimator
         if verbose:
-            print(f"Stage 1: {taper} tapered LW estimation")
+            print(f"Stage 1: {self.taper} tapered LW estimation")
         X_step1 = X_detrended  # Stage 1 uses detrended data
-        lw = LW()
-        result_step1 = lw.estimate(X_step1, m=m, taper=taper, bounds=bounds)
-        d_step1 = result_step1['d_hat']
-        se_step1 = result_step1['se']
+        lw = LW(bounds=self.bounds, taper=self.taper)
+        lw.fit(X_step1, m=m)
+        d_step1 = lw.d_hat_
+        se_step1 = lw.se_
+        objective_step1 = lw.objective_
+        nfev_step1 = lw.nfev_
         if verbose:
             print(f"  Stage 1 estimate: d = {d_step1:.4f}")
 
@@ -213,7 +250,7 @@ class TwoStepELW:
             return self.objective(d, X_detrended, m)
 
         # Use narrower bounds around the initial estimate
-        local_bounds = (max(bounds[0], d_step1 - 2.576*se_step1), min(bounds[1], d_step1 + 2.576*se_step1))
+        local_bounds = (max(self.bounds[0], d_step1 - 2.576*se_step1), min(self.bounds[1], d_step1 + 2.576*se_step1))
         result_step2 = golden_section_search(step2_objective_func, brack=local_bounds)
         d_step2 = result_step2.x
         if verbose:
@@ -222,18 +259,106 @@ class TwoStepELW:
         # Two-Step ELW standard error
         se = 1 / (2 * np.sqrt(m))
 
-        return {
-            'n': n,
-            'm': m,
-            'd_hat': d_step2,
-            'se': se,
-            'ase': se,
-            'method': '2elw',
-            'taper': taper,
-            'd_step1': d_step1,
-            'nfev_step1': result_step1['nfev'],
-            'objective_step1': result_step1.get('objective', np.nan),
-            'nfev': result_step2.nfev,
-            'objective': result_step2.fun,
-            'trend_order': trend_order,
-        }
+        # Store fitted attributes
+        self.n_ = n
+        self.m_ = m
+        self.d_hat_ = d_step2
+        self.se_ = se
+        self.ase_ = se
+        self.d_step1_ = d_step1
+        self.se_step1_ = se_step1
+        self.objective_ = result_step2.fun
+        self.objective_step1_ = objective_step1
+        self.nfev_ = result_step2.nfev
+        self.nfev_step1_ = nfev_step1
+
+        return self
+
+    def estimate(self, X: np.ndarray,
+                 m: Optional[int] = None,
+                 bounds: Optional[Tuple[float, float]] = None,
+                 taper: Optional[str] = None,
+                 trend_order: Optional[int] = None,
+                 verbose: Optional[bool] = False) -> Dict[str, Any]:
+        """
+        Two-step exact local Whittle estimation of memory parameter d.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Time series data
+        m : int, optional
+            Number of frequencies to use. Default m = n^0.65.
+        bounds: tuple[float, float], optional
+            Lower and upper bounds for golden section search.
+            If provided, temporarily overrides constructor bounds.
+        taper : str, optional
+            Type of taper for Stage 1. If provided, temporarily overrides
+            constructor taper.
+        trend_order : int, optional
+            Order of polynomial detrending. If provided, temporarily
+            overrides constructor trend_order.
+        verbose : bool, optional
+            Print diagnostic information
+
+        Returns
+        -------
+        Dict[str, Any]
+            Two-step ELW estimation results
+        """
+        # Temporarily store original parameters
+        original_bounds = self.bounds
+        original_taper = self.taper
+        original_trend_order = self.trend_order
+
+        # Override parameters if provided
+        if bounds is not None:
+            self.bounds = bounds
+        if taper is not None:
+            self.taper = taper
+        if trend_order is not None:
+            self.trend_order = trend_order
+
+        try:
+            # Fit the model
+            self.fit(X, m=m, verbose=verbose)
+
+            # Return results as dictionary for backward compatibility
+            return {
+                'n': self.n_,
+                'm': self.m_,
+                'd_hat': self.d_hat_,
+                'se': self.se_,
+                'ase': self.ase_,
+                'method': '2elw',
+                'taper': self.taper,
+                'd_step1': self.d_step1_,
+                'se_step1': self.se_step1_,
+                'nfev_step1': self.nfev_step1_,
+                'objective_step1': self.objective_step1_,
+                'nfev': self.nfev_,
+                'objective': self.objective_,
+                'trend_order': self.trend_order,
+            }
+        finally:
+            # Restore original parameters
+            self.bounds = original_bounds
+            self.taper = original_taper
+            self.trend_order = original_trend_order
+
+    def __repr__(self):
+        """Representation showing non-default parameters."""
+        params = []
+
+        if self.bounds != self._default_bounds:
+            params.append(f"bounds={self.bounds}")
+        if self.taper != self._default_taper:
+            params.append(f"taper='{self.taper}'")
+        if self.trend_order != self._default_trend_order:
+            params.append(f"trend_order={self.trend_order}")
+
+        params_str = ", ".join(params)
+        return f"TwoStepELW({params_str})"
+
+    def __str__(self):
+        return self.__repr__()

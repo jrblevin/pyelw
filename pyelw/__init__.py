@@ -5,5 +5,5 @@ from .twostep import TwoStepELW
 __all__ = [
     'LW',
     'ELW',
-    'TwoStepELW'
+    'TwoStepELW',
 ]

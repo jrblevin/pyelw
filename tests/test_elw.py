@@ -361,3 +361,130 @@ def test_r_elw_baseline(case, nile_data, sealevel_data):
     atol_se = 1e-8
     assert se_error <= atol_se, \
         f"se mismatch for {case['name']}: Python={result['ase']:.6f}, R={expected_se:.6f}, error={se_error:.6f}"
+
+
+def test_constructor_defaults():
+    """Test constructor with default parameters."""
+    elw = ELW()
+    assert elw.bounds == (-1.0, 2.2)
+    assert elw.mean_est == 'none'
+    assert elw._default_bounds == (-1.0, 2.2)
+    assert elw._default_mean_est == 'none'
+
+
+def test_constructor_custom_params():
+    """Test constructor with custom parameters."""
+    elw = ELW(bounds=(-0.5, 1.5), mean_est='mean')
+    assert elw.bounds == (-0.5, 1.5)
+    assert elw.mean_est == 'mean'
+
+
+def test_repr_default_params():
+    """Test __repr__ with default parameters."""
+    elw = ELW()
+    assert repr(elw) == 'ELW()'
+    assert str(elw) == 'ELW()'
+
+
+def test_repr_custom_params():
+    """Test __repr__ with custom parameters."""
+    elw = ELW(bounds=(-0.5, 1.5))
+    assert repr(elw) == "ELW(bounds=(-0.5, 1.5))"
+
+    elw = ELW(mean_est="mean")
+    assert repr(elw) == "ELW(mean_est='mean')"
+
+    elw = ELW(bounds=(-0.5, 1.5), mean_est="init")
+    assert repr(elw) == "ELW(bounds=(-0.5, 1.5), mean_est='init')"
+
+
+def test_get_params():
+    """Test get_params method."""
+    elw = ELW(bounds=(-0.5, 1.5), mean_est='mean')
+    params = elw.get_params()
+    expected = {'bounds': (-0.5, 1.5), 'mean_est': 'mean'}
+    assert params == expected
+
+
+def test_set_params():
+    """Test set_params method."""
+    elw = ELW()
+    elw.set_params(bounds=(-0.5, 1.5), mean_est='init')
+    assert elw.bounds == (-0.5, 1.5)
+    assert elw.mean_est == 'init'
+
+
+def test_set_params_returns_self():
+    """Test that set_params returns self for method chaining."""
+    elw = ELW()
+    result = elw.set_params(bounds=(-0.5, 1.5))
+    assert result is elw
+
+
+def test_set_params_invalid_parameter():
+    """Test set_params with invalid parameter raises ValueError."""
+    elw = ELW()
+    with pytest.raises(ValueError, match='Invalid parameter invalid_param'):
+        elw.set_params(invalid_param='value')
+
+
+def test_fit_basic():
+    """Test basic fit functionality."""
+    np.random.seed(42)
+    X = np.random.randn(100)
+    elw = ELW()
+    result = elw.fit(X, m=20)
+
+    # Should return self
+    assert result is elw
+
+    # Should have fitted attributes
+    assert hasattr(elw, 'd_hat_')
+    assert hasattr(elw, 'se_')
+    assert hasattr(elw, 'ase_')
+    assert hasattr(elw, 'n_')
+    assert hasattr(elw, 'm_')
+    assert hasattr(elw, 'objective_')
+    assert hasattr(elw, 'nfev_')
+
+    # Check values are reasonable
+    assert elw.n_ == len(X)
+    assert elw.m_ == 20
+    assert np.isfinite(elw.d_hat_)
+
+
+def test_fit_method_chaining():
+    """Test method chaining with fit."""
+    np.random.seed(42)
+    X = np.random.randn(100)
+    d_hat = ELW(bounds=(-0.5, 1.5)).fit(X, m=20).d_hat_
+    assert np.isfinite(d_hat)
+
+
+def test_backward_compatibility_estimate():
+    """Test that estimate() API works."""
+    np.random.seed(42)
+    X = np.random.randn(100)
+    elw = ELW()
+    result = elw.estimate(X, m=20, bounds=(-0.5, 1.5), mean_est='mean')
+
+    # Should return dict
+    assert isinstance(result, dict)
+    assert 'd_hat' in result
+    assert 'se' in result
+    assert 'method' in result
+    assert result['method'] == 'elw'
+
+
+def test_estimate_parameter_override():
+    """Test that estimate() parameters temporarily override constructor params."""
+    np.random.seed(42)
+    X = np.random.randn(100)
+    elw = ELW(bounds=(-1.0, 2.2), mean_est='none')
+
+    # Use different parameters in estimate()
+    _ = elw.estimate(X, m=20, bounds=(-0.5, 1.5), mean_est='mean')
+
+    # Constructor params should be restored
+    assert elw.bounds == (-1.0, 2.2)
+    assert elw.mean_est == 'none'

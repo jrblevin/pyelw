@@ -155,3 +155,140 @@ def test_r_elw2s_baseline(case, nile_data, sealevel_data, estimator):
     atol_se = 1e-8
     assert se_error <= atol_se, \
         f"se mismatch for {case['name']}: Python={result['se']:.6f}, R={expected_se:.6f}, error={se_error:.6f}"
+
+
+def test_constructor_defaults():
+    """Test constructor with default parameters."""
+    elw2 = TwoStepELW()
+    assert elw2.bounds == (-1.0, 2.2)
+    assert elw2.taper == 'hc'
+    assert elw2.trend_order == 0
+    assert elw2._default_bounds == (-1.0, 2.2)
+    assert elw2._default_taper == 'hc'
+    assert elw2._default_trend_order == 0
+
+
+def test_constructor_custom_params():
+    """Test constructor with custom parameters."""
+    elw2 = TwoStepELW(bounds=(-0.5, 1.5), taper='none', trend_order=1)
+    assert elw2.bounds == (-0.5, 1.5)
+    assert elw2.taper == 'none'
+    assert elw2.trend_order == 1
+
+
+def test_repr_default_params():
+    """Test __repr__ with default parameters."""
+    elw2 = TwoStepELW()
+    assert repr(elw2) == "TwoStepELW()"
+
+
+def test_repr_custom_params():
+    """Test __repr__ with custom parameters."""
+    elw2 = TwoStepELW(taper='none')
+    assert repr(elw2) == "TwoStepELW(taper='none')"
+
+    elw2 = TwoStepELW(trend_order=1, taper='kolmogorov')
+    assert repr(elw2) == "TwoStepELW(taper='kolmogorov', trend_order=1)"
+
+
+def test_get_params():
+    """Test get_params method."""
+    elw2 = TwoStepELW(bounds=(-0.5, 1.5), taper='none', trend_order=1)
+    params = elw2.get_params()
+    expected = {"bounds": (-0.5, 1.5), "taper": "none", "trend_order": 1}
+    assert params == expected
+
+
+def test_set_params():
+    """Test set_params method."""
+    elw2 = TwoStepELW()
+    elw2.set_params(bounds=(-0.5, 1.5), trend_order=1)
+    assert elw2.bounds == (-0.5, 1.5)
+    assert elw2.trend_order == 1
+
+
+def test_set_params_returns_self():
+    """Test that set_params returns self for method chaining."""
+    elw2 = TwoStepELW()
+    result = elw2.set_params(taper='none')
+    assert result is elw2
+
+
+def test_set_params_invalid_parameter():
+    """Test set_params with invalid parameter raises ValueError."""
+    elw2 = TwoStepELW()
+    with pytest.raises(ValueError, match="Invalid parameter invalid_param"):
+        elw2.set_params(invalid_param="value")
+
+
+def test_fit_basic(nile_data):
+    """Test basic fit functionality."""
+    elw2 = TwoStepELW()
+    result = elw2.fit(nile_data, m=20)
+
+    # Should return self
+    assert result is elw2
+
+    # Should have fitted attributes
+    assert hasattr(elw2, 'd_hat_')
+    assert hasattr(elw2, 'se_')
+    assert hasattr(elw2, 'ase_')
+    assert hasattr(elw2, 'n_')
+    assert hasattr(elw2, 'm_')
+    assert hasattr(elw2, 'objective_')
+    assert hasattr(elw2, 'nfev_')
+    assert hasattr(elw2, 'd_step1_')
+    assert hasattr(elw2, 'se_step1_')
+    assert hasattr(elw2, 'objective_step1_')
+    assert hasattr(elw2, 'nfev_step1_')
+
+    # Check values are reasonable
+    assert elw2.n_ == len(nile_data)
+    assert elw2.m_ == 20
+    assert np.isfinite(elw2.d_hat_)
+    assert np.isfinite(elw2.d_step1_)
+
+
+def test_two_stage_results(nile_data):
+    """Test that two-stage results are properly stored."""
+    elw2 = TwoStepELW()
+    elw2.fit(nile_data, m=20)
+
+    # Should have both stage 1 and final results
+    assert np.isfinite(elw2.d_step1_)
+    assert np.isfinite(elw2.d_hat_)
+    assert np.isfinite(elw2.se_step1_)
+    assert np.isfinite(elw2.se_)
+
+
+def test_fit_method_chaining(nile_data):
+    """Test method chaining with fit."""
+    d_hat = TwoStepELW(taper='none').fit(nile_data, m=20).d_hat_
+    assert np.isfinite(d_hat)
+
+
+def test_backward_compatibility_estimate(nile_data):
+    """Test that old estimate() API still works."""
+    elw2 = TwoStepELW()
+    result = elw2.estimate(nile_data, m=20, bounds=(-0.5, 1.5), trend_order=1)
+
+    # Should return dict
+    assert isinstance(result, dict)
+    assert 'd_hat' in result
+    assert 'se' in result
+    assert result['method'] == '2elw'
+    assert result['trend_order'] == 1
+    assert 'd_step1' in result
+
+
+def test_estimate_parameter_override(nile_data):
+    """Test that estimate() parameters temporarily override constructor params."""
+    elw2 = TwoStepELW(bounds=(-1.0, 2.2), taper='hc', trend_order=0)
+
+    # Use different parameters in estimate()
+    result = elw2.estimate(nile_data, m=20, bounds=(-0.5, 1.5), trend_order=1)
+
+    # Constructor params should be restored
+    assert elw2.bounds == (-1.0, 2.2)
+    assert elw2.taper == 'hc'
+    assert elw2.trend_order == 0

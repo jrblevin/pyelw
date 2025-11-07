@@ -13,37 +13,33 @@ print()
 
 # Estimate d using local Whittle estimator
 # Use default number of frequencies m
-lw = LW()
-result = lw.estimate(nile)
+lw = LW().fit(nile)
 
 # Print results
 print("Local Whittle Estimation")
 print("========================")
-print(f"Number of observations: {result['n']}")
-print(f"Number of frequencies used: {result['m']}")
-print(f"Estimate of d: {result['d_hat']}")
-print(f"Fisher standard error: {result['se']}")
-print(f"Asymptotic standard error: {result['ase']}")
-print(f"Objective value R(d_hat): {result['objective']}")
-print(f"Function evaluation count: {result['nfev']}")
-print(f"Computational time: {result['timing']['total']} seconds")
+print(f"Number of observations: {lw.n_}")
+print(f"Number of frequencies used: {lw.m_}")
+print(f"Estimate of d: {lw.d_hat_}")
+print(f"Fisher standard error: {lw.se_}")
+print(f"Asymptotic standard error: {lw.ase_}")
+print(f"Objective value R(d_hat): {lw.objective_}")
+print(f"Function evaluation count: {lw.nfev_}")
 print()
 
 # Estimate d using exact local Whittle estimator
 # Use default number of frequencies m
-elw = ELW()
-result = elw.estimate(nile)
+elw = ELW().fit(nile)
 
 # Print results
 print()
 print("Exact Local Whittle Estimation")
 print("==============================")
-print(f"Number of observations: {result['n']}")
-print(f"Number of frequencies used: {result['m']}")
-print(f"Estimate of d: {result['d_hat']}")
-print(f"Fisher standard error: {result['se']}")
-print(f"Asymptotic standard error: {result['ase']}")
-print(f"Objective value R(d_hat): {result['objective']}")
-print(f"Function evaluation count: {result['nfev']}")
-print(f"Computational time: {result['timing']['total']} seconds")
+print(f"Number of observations: {elw.n_}")
+print(f"Number of frequencies used: {elw.m_}")
+print(f"Estimate of d: {elw.d_hat_}")
+print(f"Fisher standard error: {elw.se_}")
+print(f"Asymptotic standard error: {elw.ase_}")
+print(f"Objective value R(d_hat): {elw.objective_}")
+print(f"Function evaluation count: {elw.nfev_}")
 print()

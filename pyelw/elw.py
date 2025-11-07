@@ -9,11 +9,45 @@ class ELW:
     """
     Exact Local Whittle estimator of Shimotsu and Phillips (2005).
 
+    Parameters
+    ----------
+    bounds : tuple of float, default=(-1.0, 2.2)
+        Lower and upper bounds for optimization of memory parameter d.
+    mean_est : str, default='none'
+        Form of mean estimation. Options:
+        - 'mean': subtract sample mean (valid for d in (-1/2, 1))
+        - 'init': subtract initial value (valid for d > 0)
+        - 'none': no mean correction
+
+    Attributes
+    ----------
+    d_hat_ : float
+        Estimated memory parameter.
+    se_ : float
+        Standard error of the estimate.
+    ase_ : float
+        Asymptotic standard error.
+    n_ : int
+        Sample size.
+    m_ : int
+        Number of frequencies used.
+    objective_ : float
+        Final objective function value.
+    nfev_ : int
+        Number of function evaluations.
+
     References
     ----------
     Shimotsu, K. and Phillips, P.C.B. (2005). Exact Local Whittle Estimation
     of Fractional Integration. _Annals of Statistics_ 33, 1890--1933.
     """
+
+    def __init__(self, bounds=(-1.0, 2.2), mean_est='none'):
+        self._default_bounds = (-1.0, 2.2)
+        self._default_mean_est = 'none'
+
+        self.bounds = bounds
+        self.mean_est = mean_est
 
     def objective(self, d: float, X: np.ndarray, m: int) -> float:
         """
@@ -64,45 +98,32 @@ class ELW:
         except (OverflowError, ZeroDivisionError, ValueError):
             return np.float64(np.inf)
 
-    def estimate(self,
-                 X: np.ndarray,
-                 m: Optional[int] = None,
-                 bounds: Optional[Tuple[float, float]] = (-1.0, 2.2),
-                 mean_est: Optional[str] = "none",
-                 verbose: Optional[bool] = False) -> Dict[str, Any]:
+    def fit(self, X, m=None, verbose=False):
         """
         Exact local Whittle estimation of memory parameter d.
 
         Parameters
         ----------
         X : np.ndarray
-            Time series data
+            Time series data.
         m : int, optional
-            Number of frequencies to use
-        bounds: tuple[float, float], optional
-            Lower and upper bounds for golden section search
-        mean_est : str, optional
-            Form of mean estimation. One of ['mean', 'init', 'none'].
-            - 'mean': subtract sample mean (valid for d in (-1/2, 1))
-            - 'init': subtract initial value (valid for d > 0)
-            - 'none': no mean correction
-        verbose : bool, optional
-            Print diagnostic information
+            Number of frequencies to use. If None, uses n^0.65.
+        verbose : bool, default=False
+            Print diagnostic information during fitting.
 
         Returns
         -------
-        Dict[str, Any]
-            Dictionary with estimation results
+        self : object
+            Returns the fitted estimator.
         """
-
         # Mean adjustment (see Shimotsu, 2010, section 3)
-        if mean_est == 'mean':
+        if self.mean_est == 'mean':
             # Subtract sample mean
             X = X - np.mean(X)
-        elif mean_est == 'init':
+        elif self.mean_est == 'init':
             # Subtract initial value
             X = (X - X[0])[1:]
-        elif mean_est == 'none':
+        elif self.mean_est == 'none':
             pass
         else:
             raise ValueError("mean_est must be one of 'mean', 'init', 'none'")
@@ -117,7 +138,7 @@ class ELW:
             return self.objective(d, X, m)
 
         # Optimize using golden section search with bounds
-        result = golden_section_search(objective_func, brack=bounds)
+        result = golden_section_search(objective_func, brack=self.bounds)
 
         if not result.success:
             if verbose:
@@ -153,13 +174,91 @@ class ELW:
         # Asymptotic standard error
         ase = 1 / (2 * np.sqrt(m))
 
-        return {
-            'n': n,
-            'm': m,
-            'd_hat': d_hat,
-            'se': se,
-            'ase': ase,
-            'objective': final_obj,
-            'nfev': result.nfev,
-            'method': 'elw',
-        }
+        # Store fitted attributes
+        self.n_ = n
+        self.m_ = m
+        self.d_hat_ = d_hat
+        self.se_ = se
+        self.ase_ = ase
+        self.objective_ = final_obj
+        self.nfev_ = result.nfev
+
+        return self
+
+    def estimate(self,
+                 X: np.ndarray,
+                 m: Optional[int] = None,
+                 bounds: Optional[Tuple[float, float]] = None,
+                 mean_est: Optional[str] = None,
+                 verbose: Optional[bool] = False) -> Dict[str, Any]:
+        """
+        Exact local Whittle estimation of memory parameter d.
+
+        This method provides backward compatibility with the original API.
+        For new code, consider using fit() followed by accessing fitted
+        attributes directly.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Time series data
+        m : int, optional
+            Number of frequencies to use
+        bounds: tuple[float, float], optional
+            Lower and upper bounds for golden section search.
+            If provided, temporarily overrides constructor bounds.
+        mean_est : str, optional
+            Form of mean estimation. If provided, temporarily overrides
+            constructor mean_est. One of ['mean', 'init', 'none'].
+        verbose : bool, optional
+            Print diagnostic information
+
+        Returns
+        -------
+        Dict[str, Any]
+            Dictionary with estimation results
+        """
+        # Temporarily store original parameters
+        original_bounds = self.bounds
+        original_mean_est = self.mean_est
+
+        # Override parameters if provided
+        if bounds is not None:
+            self.bounds = bounds
+        if mean_est is not None:
+            self.mean_est = mean_est
+
+        try:
+            # Fit the model
+            self.fit(X, m=m, verbose=verbose)
+
+            # Return results as dictionary for backward compatibility
+            return {
+                'n': self.n_,
+                'm': self.m_,
+                'd_hat': self.d_hat_,
+                'se': self.se_,
+                'ase': self.ase_,
+                'objective': self.objective_,
+                'nfev': self.nfev_,
+                'method': 'elw',
+            }
+        finally:
+            # Restore original parameters
+            self.bounds = original_bounds
+            self.mean_est = original_mean_est
+
+    def __repr__(self):
+        """Representation showing non-default parameters."""
+        params = []
+
+        if self.bounds != self._default_bounds:
+            params.append(f"bounds={self.bounds}")
+        if self.mean_est != self._default_mean_est:
+            params.append(f"mean_est='{self.mean_est}'")
+
+        params_str = ", ".join(params)
+        return f"ELW({params_str})"
+
+    def __str__(self):
+        return self.__repr__()
