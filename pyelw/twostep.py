@@ -202,8 +202,11 @@ class TwoStepELW:
         ----------
         X : np.ndarray
             Time series data.
-        m : int, optional
-            Number of frequencies to use. If None, uses n^0.65.
+        m : int or 'auto', optional
+            Number of frequencies to use. Options:
+            - int: Use specified number of frequencies
+            - None: Use default n^0.65
+            - 'auto': Use bootstrap procedure to select optimal bandwidth
         verbose : bool, default=False
             Print diagnostic information during estimation.
 
@@ -225,6 +228,20 @@ class TwoStepELW:
         # Number of frequencies
         if m is None:
             m = round(n**0.65)
+        elif m == 'auto':
+            # Use bootstrap MSE bandwidth selection to find optimal m
+            from .lw_bootstrap_m import LWBootstrapM
+            selector = LWBootstrapM(bounds=self.bounds, verbose=verbose)
+            selector.fit(X_detrended)
+
+            # Store bootstrap-specific attributes
+            self.bootstrap_m_optimal_m_ = selector.optimal_m_
+            self.bootstrap_m_iterations_ = selector.iterations_
+            self.bootstrap_m_mse_profile_ = selector.mse_profile_
+            self.bootstrap_m_k_n_ = selector.k_n_
+
+            # Use the optimal m for two-step ELW estimation
+            m = selector.optimal_m_
         if verbose:
             print(f"Using {m} frequencies for both steps")
 
@@ -275,7 +292,7 @@ class TwoStepELW:
         return self
 
     def estimate(self, X: np.ndarray,
-                 m: Optional[int] = None,
+                 m = None,
                  bounds: Optional[Tuple[float, float]] = None,
                  taper: Optional[str] = None,
                  trend_order: Optional[int] = None,
@@ -287,8 +304,8 @@ class TwoStepELW:
         ----------
         X : np.ndarray
             Time series data
-        m : int, optional
-            Number of frequencies to use. Default m = n^0.65.
+        m : int or 'auto', optional
+            Number of frequencies to use. Use 'auto' for bootstrap selection. Default m = n^0.65.
         bounds: tuple[float, float], optional
             Lower and upper bounds for golden section search.
             If provided, temporarily overrides constructor bounds.

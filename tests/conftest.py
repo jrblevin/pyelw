@@ -1,6 +1,9 @@
 import os
 import pytest
+import numpy as np
 import pandas as pd
+
+from pyelw.simulate import arfima
 
 
 @pytest.fixture(scope="session")
@@ -23,3 +26,13 @@ def sealevel_data(data_dir):
     file_path = os.path.join(data_dir, "sealevel.csv")
     df = pd.read_csv(file_path)
     return pd.to_numeric(df['Sea'], errors='coerce').values
+
+
+@pytest.fixture
+def arfima_data_auto():
+    """Generate ARFIMA(0, d, 0) test data for m='auto' tests."""
+    np.random.seed(42)
+    d_true = 0.3
+    n = 200
+    x = arfima(n, d_true, sigma=1.0)
+    return x, d_true

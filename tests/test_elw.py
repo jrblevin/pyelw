@@ -488,3 +488,41 @@ def test_estimate_parameter_override():
     # Constructor params should be restored
     assert elw.bounds == (-1.0, 2.2)
     assert elw.mean_est == 'none'
+
+
+@pytest.mark.slow
+def test_elw_auto_m_basic(arfima_data_auto):
+    """Test that ELW.fit(m='auto') works and sets bootstrap attributes."""
+    x, d_true = arfima_data_auto
+
+    elw = ELW()
+    elw.fit(x, m='auto')
+
+    # Check that bootstrap attributes are set
+    assert hasattr(elw, 'bootstrap_m_optimal_m_')
+    assert hasattr(elw, 'bootstrap_m_iterations_')
+    assert hasattr(elw, 'bootstrap_m_mse_profile_')
+    assert hasattr(elw, 'bootstrap_m_k_n_')
+
+    # Check that standard fitted attributes are set
+    assert hasattr(elw, 'd_hat_')
+    assert hasattr(elw, 'se_')
+    assert hasattr(elw, 'm_')
+    assert hasattr(elw, 'n_')
+
+    # Check that optimal_m was used
+    assert elw.m_ == elw.bootstrap_m_optimal_m_
+
+    # Check that estimate is reasonable
+    assert np.isfinite(elw.d_hat_)
+    assert abs(elw.d_hat_ - d_true) < 0.3  # Loose bound
+
+    # Use mean estimation
+    elw = ELW(mean_est='mean')
+    elw.fit(x, m='auto')
+
+    # Check that bootstrap attributes are set
+    assert hasattr(elw, 'bootstrap_m_optimal_m_')
+
+    # Check that m matches optimal_m
+    assert elw.m_ == elw.bootstrap_m_optimal_m_

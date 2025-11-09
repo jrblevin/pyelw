@@ -344,6 +344,14 @@ pip install -r requirements-test.txt
 pytest
 ```
 
+Note that some tests, particularly the bootstrap MSE bandwidth selection tests,
+take several minutes to run.  These tests are marked as `@pytest.mark.slow`
+and can be excluded with:
+
+```bash
+pytest -m "not slow"
+```
+
 ## References
 
 * Blevins, J.R. (2025).

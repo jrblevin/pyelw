@@ -106,8 +106,11 @@ class ELW:
         ----------
         X : np.ndarray
             Time series data.
-        m : int, optional
-            Number of frequencies to use. If None, uses n^0.65.
+        m : int or 'auto', optional
+            Number of frequencies to use. Options:
+            - int: Use specified number of frequencies
+            - None: Use default n^0.65
+            - 'auto': Use bootstrap procedure to select optimal bandwidth
         verbose : bool, default=False
             Print diagnostic information during fitting.
 
@@ -132,6 +135,20 @@ class ELW:
         n = len(X)
         if m is None:
             m = int(n**0.65)
+        elif m == 'auto':
+            # Use bootstrap MSE bandwidth selection to find optimal m
+            from .lw_bootstrap_m import LWBootstrapM
+            selector = LWBootstrapM(bounds=self.bounds, verbose=verbose)
+            selector.fit(X)
+
+            # Store bootstrap-specific attributes
+            self.bootstrap_m_optimal_m_ = selector.optimal_m_
+            self.bootstrap_m_iterations_ = selector.iterations_
+            self.bootstrap_m_mse_profile_ = selector.mse_profile_
+            self.bootstrap_m_k_n_ = selector.k_n_
+
+            # Use the optimal m for ELW estimation
+            m = selector.optimal_m_
 
         # ELW objective function
         def objective_func(d: float) -> float:
@@ -187,7 +204,7 @@ class ELW:
 
     def estimate(self,
                  X: np.ndarray,
-                 m: Optional[int] = None,
+                 m = None,
                  bounds: Optional[Tuple[float, float]] = None,
                  mean_est: Optional[str] = None,
                  verbose: Optional[bool] = False) -> Dict[str, Any]:
@@ -202,8 +219,8 @@ class ELW:
         ----------
         X : np.ndarray
             Time series data
-        m : int, optional
-            Number of frequencies to use
+        m : int or 'auto', optional
+            Number of frequencies to use. Use 'auto' for bootstrap selection.
         bounds: tuple[float, float], optional
             Lower and upper bounds for golden section search.
             If provided, temporarily overrides constructor bounds.

@@ -292,3 +292,31 @@ def test_estimate_parameter_override(nile_data):
     assert elw2.bounds == (-1.0, 2.2)
     assert elw2.taper == 'hc'
     assert elw2.trend_order == 0
+
+
+@pytest.mark.slow
+def test_twostep_auto_m_basic(arfima_data_auto):
+    """Test that TwoStepELW.fit(m='auto') works and sets bootstrap attributes."""
+    x, d_true = arfima_data_auto
+
+    ts_elw = TwoStepELW()
+    ts_elw.fit(x, m='auto')
+
+    # Check that bootstrap attributes are set
+    assert hasattr(ts_elw, 'bootstrap_m_optimal_m_')
+    assert hasattr(ts_elw, 'bootstrap_m_iterations_')
+    assert hasattr(ts_elw, 'bootstrap_m_mse_profile_')
+    assert hasattr(ts_elw, 'bootstrap_m_k_n_')
+
+    # Check that standard fitted attributes are set
+    assert hasattr(ts_elw, 'd_hat_')
+    assert hasattr(ts_elw, 'se_')
+    assert hasattr(ts_elw, 'm_')
+    assert hasattr(ts_elw, 'n_')
+
+    # Check that optimal_m was used
+    assert ts_elw.m_ == ts_elw.bootstrap_m_optimal_m_
+
+    # Check that estimate is reasonable
+    assert np.isfinite(ts_elw.d_hat_)
+    assert abs(ts_elw.d_hat_ - d_true) < 0.3  # Loose bound
