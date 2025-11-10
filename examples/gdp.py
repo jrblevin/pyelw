@@ -47,18 +47,18 @@ plt.show()
 # ------------------------------------------------------------------------
 
 # Two-Step ELW estimation with linear detrending
-estimator = TwoStepELW()
+estimator = TwoStepELW(trend_order=1)
 m = int(n**0.65)  # Choose bandwidth/number of frequencies
-result = estimator.estimate(log_gdp, m=m, trend_order=1)
-ci_lower = result['d_hat'] - 1.96 * result['se']
-ci_upper = result['d_hat'] + 1.96 * result['se']
+estimator.fit(log_gdp, m=m)
+ci_lower = estimator.d_hat_ - 1.96 * estimator.se_
+ci_upper = estimator.d_hat_ + 1.96 * estimator.se_
 
 # Display results
 print("\nTwo-Step ELW Results:")
 print(f"Sample size:           {n}")
 print(f"Number of frequencies: {m}")
-print(f"Estimated d:           {result['d_hat']:.4f}")
-print(f"Standard error:        {result['se']:.4f}")
+print(f"Estimated d:           {estimator.d_hat_:.4f}")
+print(f"Standard error:        {estimator.se_:.4f}")
 print(f"95% CI:                [{ci_lower:.4f}, {ci_upper:.4f}]")
 
 # ------------------------------------------------------------------------

@@ -98,8 +98,8 @@ def generate_mc_data(save_data=False):
                 np.savetxt(filename, x, fmt='%.10f')
 
             # Compute estimate
-            result = lw.estimate(x, m=M, taper='hc', bounds=(-0.49, 1.49), verbose=False)
-            estimates.append(result['d_hat'])
+            lw.fit(x, m=M, taper='hc', bounds=(-0.49, 1.49), verbose=False)
+            estimates.append(lw.d_hat_)
 
         results[(d_true, phi)] = {
             'mean': np.mean(estimates),
@@ -115,7 +115,7 @@ def generate_mc_data(save_data=False):
 
 def run_monte_carlo():
     """Run the main Monte Carlo replication study."""
-    lw = LW()
+    lw_hc = LW(taper='hc', bounds=(-0.49, 1.49))
 
     print("Hurvich and Chen (2000) Table I Replication")
     print("===========================================")
@@ -134,8 +134,8 @@ def run_monte_carlo():
         gset_estimates = []
         for sim in range(N_REP):
             x = arfima(N_OBS, d, phi, seed=2025+sim, burnin=2*N_OBS)
-            result_gset = lw.estimate(x, m=M, taper='hc', bounds=(-0.49, 1.49), verbose=False)
-            gset_estimates.append(result_gset['d_hat'])
+            lw_hc.fit(x, m=M, verbose=False)
+            gset_estimates.append(lw_hc.d_hat_)
 
         gset_mean = np.mean(gset_estimates)
         gset_var = np.var(gset_estimates)

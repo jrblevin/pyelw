@@ -26,10 +26,10 @@ plt.show()
 
 # Estimate d using local Whittle estimator
 lw = LW()
-result = lw.estimate(nile)
-print(f"LW estimate:  {result['d_hat']:8.3f} ({result['se']:.3f})")
+lw.fit(nile)
+print(f"LW estimate:  {lw.d_hat_:8.3f} ({lw.se_:.3f})")
 
 # Estimate d using exact local Whittle estimator
 elw = ELW()
-result = elw.estimate(nile)
-print(f"ELW estimate: {result['d_hat']:8.3f} ({result['se']:.3f})")
+elw.fit(nile)
+print(f"ELW estimate: {elw.d_hat_:8.3f} ({elw.se_:.3f})")

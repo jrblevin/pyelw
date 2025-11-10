@@ -14,10 +14,11 @@ d_list = [-3.5, -2.3, -1.7, -1.3, -0.7, -0.3, 0.0, 0.3, 0.7, 1.3, 1.7, 2.3, 3.5]
 mc_reps = 10000
 alpha = 0.65
 m = int(n**alpha)
+bounds = (-4.0, 4.0)
 
 # Estimators
-lw = LW()
-elw = ELW()
+lw = LW(bounds=bounds)
+elw = ELW(bounds=bounds)
 
 # Initialize storage for results
 elw_estimates = np.zeros((mc_reps, len(d_list)))
@@ -89,11 +90,11 @@ print("=========================================================")
 for i, d_true in enumerate(d_list):
     for rep in range(mc_reps):
         x = arfima(n, d_true, sigma=1.0, seed=42 * i + rep)
-        elw_result = elw.estimate(x, m=m, bounds=(-4.0, 4.0), verbose=False)
-        lw_result = lw.estimate(x, m=m, bounds=(-4.0, 4.0), verbose=False)
+        elw.fit(x, m=m, verbose=False)
+        lw.fit(x, m=m, verbose=False)
 
-        elw_estimates[rep, i] = elw_result['d_hat']
-        lw_estimates[rep, i] = lw_result['d_hat']
+        elw_estimates[rep, i] = elw.d_hat_
+        lw_estimates[rep, i] = lw.d_hat_
 
     # Calculate results for each d value
     elw_results[i, 0] = np.mean(elw_estimates[:, i]) - d_true  # Bias

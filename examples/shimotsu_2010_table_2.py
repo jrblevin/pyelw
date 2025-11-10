@@ -26,7 +26,7 @@ m = int(n**alpha)  # m = n^0.65 = 57
 print(f"Monte Carlo replication: n={n}, m=n^{{{alpha:.2f}}}={m}, replications={mc_reps}")
 
 # Two-step ELW estimator
-elw2 = TwoStepELW()
+elw2 = TwoStepELW(bounds=(-1.0, 3.0), trend_order=0)
 
 # Original results from Shimotsu (2010) Table 2 (2ELW columns only)
 original_results = {
@@ -61,8 +61,8 @@ for d_true in d_list:
             x = arfima(n, d_true, phi=rho, sigma=1.0, seed=seed, burnin=2*n)
 
             # Apply 2-step ELW estimator
-            result = elw2.estimate(x, m=m, bounds=(-1.0, 3.0), trend_order=0)
-            estimates[rep] = result['d_hat']
+            elw2.fit(x, m=m)
+            estimates[rep] = elw2.d_hat_
 
         # Calculate bias and variance
         pyelw_bias = np.mean(estimates) - d_true

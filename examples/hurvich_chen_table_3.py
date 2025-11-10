@@ -25,7 +25,7 @@ specifications = [
     ('Industrial production, USA',            'indpro_us.dat',       'log',       100,  1.34, 0.075),
 ]
 
-lw = LW()
+lw = LW(taper='hc')
 
 print("Hurvich and Chen (2000) Table III Replication")
 print("=============================================")
@@ -40,7 +40,7 @@ for desc, filename, transform, m, paper_d_hat, paper_se, in specifications:
         series = np.log(series)
     elif transform == 'diff-log':
         series = np.diff(np.log(series))
-    result = lw.estimate(series, m=m, taper='hc')
-    our_d_hat = result['d_hat']
-    our_se = result['se']
+    lw.fit(series, m=m)
+    our_d_hat = lw.d_hat_
+    our_se = lw.se_
     print(f"| {desc:<40} | {n:>4d} | {m:>4d} | {our_d_hat:>7.2f} ({our_se:>5.3f})  | {paper_d_hat:>7.2f} ({paper_se:>5.3f})  | ")

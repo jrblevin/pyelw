@@ -55,7 +55,7 @@ series_mapping = [
 
 # Initialize estimators
 lw_estimator = LW()
-tselw_estimator = TwoStepELW()
+elw2_estimator = TwoStepELW(trend_order=1)
 
 # Compute our results
 our_results = {}
@@ -65,22 +65,19 @@ for series_code, series_label in series_mapping:
         continue
 
     series_data = data[series_code].dropna().values
-    # if series_code == 'unemploy':
-    #     series_data = np.exp(series_data)
-
     n_obs = len(series_data)
 
     # Local Whittle: diff -> LW -> add 1
     y_diff = np.diff(series_data)
     m_lw = round(n_obs**0.70)
-    lw_result = lw_estimator.estimate(y_diff, m=m_lw, verbose=False)
-    d_lw = lw_result['d_hat'] + 1.0
+    lw_estimator.fit(y_diff, m=m_lw, verbose=False)
+    d_lw = lw_estimator.d_hat_ + 1.0
 
     # Two-Step ELW
     m_elw = round(n_obs**0.70)
-    elw_result = tselw_estimator.estimate(series_data, m=m_elw, trend_order=1)
-    d_elw = elw_result['d_hat']
-    se_elw = elw_result['se']
+    elw2_estimator.fit(series_data, m=m_elw)
+    d_elw = elw2_estimator.d_hat_
+    se_elw = elw2_estimator.se_
 
     # 95% CI
     ci_lower = d_elw - 1.96 * se_elw
