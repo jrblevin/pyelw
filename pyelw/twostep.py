@@ -227,7 +227,7 @@ class TwoStepELW:
 
         # Number of frequencies
         if m is None:
-            m = round(n**0.65)
+            m = int(n**0.65)
         elif m == 'auto':
             # Use bootstrap MSE bandwidth selection to find optimal m
             from .lw_bootstrap_m import LWBootstrapM
