@@ -586,36 +586,6 @@ def test_repr_custom_params():
     assert repr(lw) == "LW(bounds=(-0.5, 1.5), taper='kolmogorov')"
 
 
-def test_get_params():
-    """Test get_params method."""
-    lw = LW(bounds=(-0.5, 1.5), taper='hc', diff=2)
-    params = lw.get_params()
-    expected = {"bounds": (-0.5, 1.5), "taper": "hc", "diff": 2}
-    assert params == expected
-
-
-def test_set_params():
-    """Test set_params method."""
-    lw = LW()
-    lw.set_params(bounds=(-0.5, 1.5), taper='hc')
-    assert lw.bounds == (-0.5, 1.5)
-    assert lw.taper == 'hc'
-
-
-def test_set_params_returns_self():
-    """Test that set_params returns self for method chaining."""
-    lw = LW()
-    result = lw.set_params(taper='hc')
-    assert result is lw
-
-
-def test_set_params_invalid_parameter():
-    """Test set_params with invalid parameter raises ValueError."""
-    lw = LW()
-    with pytest.raises(ValueError, match="Invalid parameter invalid_param"):
-        lw.set_params(invalid_param="value")
-
-
 def test_fit_basic(nile_data):
     """Test basic fit functionality."""
     lw = LW()

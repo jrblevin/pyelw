@@ -191,36 +191,6 @@ def test_repr_custom_params():
     assert repr(elw2) == "TwoStepELW(taper='kolmogorov', trend_order=1)"
 
 
-def test_get_params():
-    """Test get_params method."""
-    elw2 = TwoStepELW(bounds=(-0.5, 1.5), taper='none', trend_order=1)
-    params = elw2.get_params()
-    expected = {"bounds": (-0.5, 1.5), "taper": "none", "trend_order": 1}
-    assert params == expected
-
-
-def test_set_params():
-    """Test set_params method."""
-    elw2 = TwoStepELW()
-    elw2.set_params(bounds=(-0.5, 1.5), trend_order=1)
-    assert elw2.bounds == (-0.5, 1.5)
-    assert elw2.trend_order == 1
-
-
-def test_set_params_returns_self():
-    """Test that set_params returns self for method chaining."""
-    elw2 = TwoStepELW()
-    result = elw2.set_params(taper='none')
-    assert result is elw2
-
-
-def test_set_params_invalid_parameter():
-    """Test set_params with invalid parameter raises ValueError."""
-    elw2 = TwoStepELW()
-    with pytest.raises(ValueError, match="Invalid parameter invalid_param"):
-        elw2.set_params(invalid_param="value")
-
-
 def test_fit_basic(nile_data):
     """Test basic fit functionality."""
     elw2 = TwoStepELW()

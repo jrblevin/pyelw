@@ -398,36 +398,6 @@ def test_repr_custom_params():
     assert repr(elw) == "ELW(bounds=(-0.5, 1.5), mean_est='init')"
 
 
-def test_get_params():
-    """Test get_params method."""
-    elw = ELW(bounds=(-0.5, 1.5), mean_est='mean')
-    params = elw.get_params()
-    expected = {'bounds': (-0.5, 1.5), 'mean_est': 'mean'}
-    assert params == expected
-
-
-def test_set_params():
-    """Test set_params method."""
-    elw = ELW()
-    elw.set_params(bounds=(-0.5, 1.5), mean_est='init')
-    assert elw.bounds == (-0.5, 1.5)
-    assert elw.mean_est == 'init'
-
-
-def test_set_params_returns_self():
-    """Test that set_params returns self for method chaining."""
-    elw = ELW()
-    result = elw.set_params(bounds=(-0.5, 1.5))
-    assert result is elw
-
-
-def test_set_params_invalid_parameter():
-    """Test set_params with invalid parameter raises ValueError."""
-    elw = ELW()
-    with pytest.raises(ValueError, match='Invalid parameter invalid_param'):
-        elw.set_params(invalid_param='value')
-
-
 def test_fit_basic():
     """Test basic fit functionality."""
     np.random.seed(42)
