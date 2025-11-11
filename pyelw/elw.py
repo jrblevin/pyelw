@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Optional, Dict, Any, Tuple
 
-from .optimization import golden_section_search
+from .optimization import golden_section_search, robust_golden_section_search
 from .fracdiff import fracdiff
 
 
@@ -18,6 +18,12 @@ class ELW:
         - 'mean': subtract sample mean (valid for d in (-1/2, 1))
         - 'init': subtract initial value (valid for d > 0)
         - 'none': no mean correction
+    n_grid : int, default=20
+        Number of grid points for robust optimization check. If n_grid > 0,
+        performs a coarse grid search to verify the golden section search
+        found the global minimum. Recommended when local minima are suspected.
+        Set n_grid = 0 to use standard golden section search only (faster but
+        less robust).
 
     Attributes
     ----------
@@ -42,12 +48,13 @@ class ELW:
     of Fractional Integration. _Annals of Statistics_ 33, 1890--1933.
     """
 
-    def __init__(self, bounds=(-1.0, 2.2), mean_est='none'):
+    def __init__(self, bounds=(-1.0, 2.2), mean_est='none', n_grid=20):
         self._default_bounds = (-1.0, 2.2)
         self._default_mean_est = 'none'
 
         self.bounds = bounds
         self.mean_est = mean_est
+        self.n_grid = n_grid
 
     def objective(self, d: float, X: np.ndarray, m: int) -> float:
         """
@@ -155,7 +162,10 @@ class ELW:
             return self.objective(d, X, m)
 
         # Optimize using golden section search with bounds
-        result = golden_section_search(objective_func, brack=self.bounds)
+        if self.n_grid > 0:
+            result = robust_golden_section_search(objective_func, brack=self.bounds, n_grid=self.n_grid)
+        else:
+            result = golden_section_search(objective_func, brack=self.bounds)
 
         if not result.success:
             if verbose:

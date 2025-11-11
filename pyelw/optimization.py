@@ -141,3 +141,79 @@ def golden_section_search(func: Callable[[np.float64], np.float64],
         nfev=nfev,
         nit=iter
     )
+
+
+def robust_golden_section_search(func: Callable[[np.float64], np.float64],
+                                 brack: Optional[Tuple[np.float64, np.float64]] = None,
+                                 n_grid: Optional[int] = 20,
+                                 tol: Optional[np.float64] = _epsilon,
+                                 maxiter: Optional[int] = 100) -> OptimizeResult:
+    """
+    Robust golden section search with grid-based safety check.
+
+    This function enhances golden_section_search by adding a coarse grid search
+    as a safety check to avoid local minima. If the grid search finds a better
+    minimum than the golden section search, re-optimization is performed in the
+    region around the grid minimum.
+
+    Algorithm:
+    1. Run standard golden section search over full bounds.
+    2. Run coarse grid search as safety check.
+    3. If grid found better minimum, re-run golden section between
+       neighboring grid points.
+
+    Parameters
+    ----------
+    func : callable
+        Objective function to minimize, taking a single np.float64
+        argument and returning np.float64
+    brack : tuple, optional
+        Bounds for optimization as (lower, upper) of np.float64.
+        Default: (-0.5, 1.0).
+    n_grid : int, optional
+        Number of grid points for safety check. Default: 20.
+    tol : np.float64, optional
+        Tolerance for convergence. Default matches SciPy.
+    maxiter : int, optional
+        Maximum number of iterations. Default: 100.
+
+    Returns
+    -------
+    OptimizeResult
+        Optimization results as with golden_section_search.
+    """
+    # Default bounds
+    if brack is None:
+        xl, xr = np.float64(-0.5), np.float64(1.0)
+    else:
+        xl, xr = np.float64(brack[0]), np.float64(brack[1])
+
+    # Step 1: Standard golden section search
+    result_gs = golden_section_search(func, brack=(xl, xr), tol=tol, maxiter=maxiter)
+
+    # Step 2: Grid search as safety check
+    grid = np.linspace(xl, xr, n_grid)
+    grid_values = [func(d) for d in grid]
+    best_grid_idx = np.argmin(grid_values)
+    obj_grid_min = grid_values[best_grid_idx]
+    nfev = result_gs.nfev + n_grid
+
+    # Step 3: If grid found better minimum, re-run golden section search
+    if obj_grid_min < result_gs.fun:
+        # Re-optimize between neighboring grid points.
+        # Use previous and next grid points as bounds.
+        if best_grid_idx == 0:
+            local_bounds = (grid[0], grid[1])
+        elif best_grid_idx == n_grid - 1:
+            local_bounds = (grid[n_grid - 2], grid[n_grid - 1])
+        else:
+            local_bounds = (grid[best_grid_idx - 1], grid[best_grid_idx + 1])
+
+        result_retry = golden_section_search(func, brack=local_bounds,
+                                             tol=tol, maxiter=maxiter)
+        result_retry.nfev = nfev + result_retry.nfev
+        return result_retry
+    else:
+        # Golden section minimum stands
+        result_gs.nfev = nfev
+        return result_gs

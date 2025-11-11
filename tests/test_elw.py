@@ -331,8 +331,8 @@ def test_r_elw_baseline(case, nile_data, sealevel_data):
 
     assert len(series) == n, f"Dataset length mismatch for {dataset}: {len(series)} vs {n}"
 
-    # Run Local Whittle estimation
-    elw = ELW()
+    # Run exact local Whittle estimation (no initial grid search to match R)
+    elw = ELW(n_grid=0)
     result = elw.estimate(series, m=m, verbose=False)
 
     # Check basic properties
