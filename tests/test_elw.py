@@ -363,11 +363,76 @@ def test_r_elw_baseline(case, nile_data, sealevel_data):
         f"se mismatch for {case['name']}: Python={result['ase']:.6f}, R={expected_se:.6f}, error={se_error:.6f}"
 
 
+@pytest.mark.parametrize("case", R_ELW_CASES)
+def test_r_elw_baseline_robust(case, nile_data, sealevel_data):
+    """Test that robust ELW optimization finds better or equal solutions than
+    R LongMemoryTS.
+
+    The LongMemoryTS ELW implementation can get stuck in local minima. This
+    test verifies that our robust optimization (n_grid > 0) finds solutions
+    with objective function values at least as good as, and often better than,
+    the non-robust method that matches R's results.
+
+    For the Nile dataset, robust optimization detects and corrects local minima:
+    - Case 0 (m=49): Improvement of 1.02 in objective, d changes from 0.958585 to 0.016639
+    - Case 1 (m=94): Improvement of 0.64 in objective, d changes from 0.808957 to 0.017334
+    - Case 2 (m=180): Improvement of 0.21 in objective, d changes from 0.773317 to 0.019372
+    """
+    # Extract test case parameters
+    dataset = case['dataset']
+    n = case['n']
+    m = case['m']
+
+    # Get dataset from fixtures
+    if dataset == 'nile':
+        series = nile_data
+    elif dataset == 'sealevel':
+        series = sealevel_data
+    else:
+        pytest.skip(f"Unknown dataset: {dataset}")
+
+    assert len(series) == n, f"Dataset length mismatch for {dataset}: {len(series)} vs {n}"
+
+    # Run non-robust optimization (matching R behavior)
+    elw_standard = ELW(n_grid=0)
+    elw_standard.fit(series, m=m)
+    d_standard = elw_standard.d_hat_
+    obj_standard = elw_standard.objective_
+
+    # Run robust optimization (default behavior)
+    elw_robust = ELW(n_grid=20)
+    elw_robust.fit(series, m=m)
+    d_robust = elw_robust.d_hat_
+    obj_robust = elw_robust.objective_
+
+    # Verify both solutions are finite
+    assert np.isfinite(d_standard), f"Non-finite d_hat from standard optimization for {case['name']}"
+    assert np.isfinite(d_robust), f"Non-finite d_hat from robust optimization for {case['name']}"
+    assert np.isfinite(obj_standard), f"Non-finite objective from standard optimization for {case['name']}"
+    assert np.isfinite(obj_robust), f"Non-finite objective from robust optimization for {case['name']}"
+
+    # Calculate improvement
+    obj_improvement = obj_standard - obj_robust
+    d_difference = abs(d_standard - d_robust)
+
+    # Print comparison for debugging
+    print(f"\n{dataset} (m={m}) - Robust Optimization Test:")
+    print(f"  Standard (R-like):  d={d_standard:10.6f},  obj={obj_standard:10.6f}")
+    print(f"  Robust:             d={d_robust:10.6f},  obj={obj_robust:10.6f}")
+
+    # Robust optimization should find a solution at least as good as standard
+    # (lower or equal objective function value)
+    assert obj_robust <= obj_standard + 1e-6, \
+        f"Robust optimization found worse solution for {case['name']}: " \
+        f"obj_robust={obj_robust:.6f} > obj_standard={obj_standard:.6f}"
+
+
 def test_constructor_defaults():
     """Test constructor with default parameters."""
     elw = ELW()
     assert elw.bounds == (-1.0, 2.2)
     assert elw.mean_est == 'none'
+    assert elw.n_grid == 20
     assert elw._default_bounds == (-1.0, 2.2)
     assert elw._default_mean_est == 'none'
 
