@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyelw"
-version = "0.9.1"
+version = "0.9.5"
 authors = [
     {name = "Jason R. Blevins", email = "blevins.141@osu.edu"},
 ]
