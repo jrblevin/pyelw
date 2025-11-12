@@ -11,7 +11,7 @@ pip install pyelw
 
 PyELW requires:
 
-- Python (>= 3.13)
+- Python (>= 3.9)
 - NumPy (tested with 2.3.2)
 
 You can check the latest sources with the command
@@ -196,8 +196,8 @@ print(f"Loaded {len(nile)} observations")
 lw = LW().fit(nile)
 print(f"LW estimate of d: {lw.d_hat_} (m={lw.m_})")
 
-# Estimate d using exact local Whittle estimator
-elw = ELW().fit(nile)
+# Estimate d using exact local Whittle estimator, with demeaning
+elw = ELW(mean_est='mean').fit(nile)
 print(f"ELW estimate of d: {elw.d_hat_} (m={elw.m_})")
 ```
 
@@ -206,7 +206,7 @@ Output:
 ```
 Loaded 663 observations
 LW estimate of d: 0.4090443187549577 (m=68)
-ELW estimate of d: 0.8859171768894488 (m=68)
+ELW estimate of d: 0.4074584635699562 (m=68)
 ```
 
 ### Example 2: ARFIMA(0,d,0) Process
