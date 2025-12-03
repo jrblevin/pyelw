@@ -197,8 +197,10 @@ class LW:
 
         if taper in ['kolmogorov', 'cosine', 'bartlett']:
 
-            # For Velasco (1999) tapers, first compute full periodogram (skip DC)
-            I_X_full = (np.abs(fft_X[1:])**2) / (2 * np.pi * n)
+            # For Velasco (1999) tapers, normalize by H = sum(h_t^2)
+            # The tapered periodogram is I_T(\lambda) = |sum h_t x_t exp(i\lambda t)|^2 / (2\pi H)
+            H = np.sum(h**2)
+            I_X_full = (np.abs(fft_X[1:])**2) / (2 * np.pi * H)
 
             # Subsample with appropriate step p
             if taper == 'bartlett':

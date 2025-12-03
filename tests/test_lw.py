@@ -329,16 +329,35 @@ def test_octave_veltaper_kolmogorov(case, nile_data, sealevel_data):
     py_se = result['se']
     py_obj = result['objective']
 
+    # Compute adjustment for objective function comparison.
+    # Python normalizes the tapered periodogram by H = sum(h^2), while Octave
+    # uses n. The objectives differ by log(H/n), a constant that doesn't
+    # affect optimization.
+    n = len(series)
+    pp = int((n + 2) / 3)
+    h = np.ones(pp)
+    h2 = np.concatenate([np.arange(1, pp + 1), np.arange(pp - 1, 0, -1)])
+    h3 = np.convolve(h, h2)
+    if len(h3) < n:
+        h_kol = np.concatenate([h3, np.zeros(n - len(h3))])
+    else:
+        h_kol = h3[:n]
+    H = np.sum(h_kol**2)
+    log_H_over_n = np.log(H / n)
+
+    # Adjust Python objective to match Octave's normalization
+    py_obj_adjusted = py_obj + log_H_over_n
+
     # Calculate differences
     d_hat_diff = abs(py_d_hat - expected_d_hat)
     se_diff = abs(py_se - expected_se)
-    obj_diff = abs(py_obj - expected_obj)
+    obj_diff = abs(py_obj_adjusted - expected_obj)
 
     # Print comparison for debugging (pytest with -s flag)
     print(f"\n{dataset} (m={m}):")
     print(f"  d_hat: Python={py_d_hat:10.6f}, Octave={expected_d_hat:10.6f}, diff={d_hat_diff:.2e}")
     print(f"  se:    Python={py_se:10.6f}, Octave={expected_se:10.6f}, diff={se_diff:.2e}")
-    print(f"  obj:   Python={py_obj:10.6f}, Octave={expected_obj:10.6f}, diff={obj_diff:.2e}")
+    print(f"  obj:   Python={py_obj_adjusted:10.6f}, Octave={expected_obj:10.6f}, diff={obj_diff:.2e} (adjusted by log(H/n)={log_H_over_n:.4f})")
 
     # Tolerances
     d_hat_tol = 1e-4
@@ -354,7 +373,7 @@ def test_octave_veltaper_kolmogorov(case, nile_data, sealevel_data):
     assert se_diff < se_tol, \
         f"se mismatch for {case['name']}: Python={py_se:.6f}, Octave={expected_se:.6f}, diff={se_diff:.2e}"
     assert obj_diff < obj_tol, \
-        f"obj mismatch for {case['name']}: Python={py_obj:.6f}, Octave={expected_obj:.6f}, diff={obj_diff:.2e}"
+        f"obj mismatch for {case['name']}: Python={py_obj_adjusted:.6f}, Octave={expected_obj:.6f}, diff={obj_diff:.2e}"
 
     # Check method consistency
     assert result['method'] == 'lw_velasco', f"Unexpected method: {result['method']}"
