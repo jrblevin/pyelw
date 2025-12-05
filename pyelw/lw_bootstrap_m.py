@@ -1,5 +1,6 @@
 import numpy as np
 from typing import Optional, Tuple
+from joblib import Parallel, delayed
 from .optimization import golden_section_search
 
 
@@ -35,6 +36,9 @@ class LWBootstrapM:
         used if lw_estimator is None (when creating own LW estimator).
     verbose : bool, default=False
         Print progress information
+    n_jobs : int, default=-1
+        Number of parallel jobs for bandwidth evaluation. -1 means use all
+        available cores. Set to 1 to disable parallelization.
 
     Attributes
     ----------
@@ -81,7 +85,8 @@ class LWBootstrapM:
                  delta=-0.01,
                  max_iter=10,
                  bounds=(-1.0, 2.2),
-                 verbose=False):
+                 verbose=False,
+                 n_jobs=-1):
         self.lw_estimator = lw_estimator
         self.k_n = k_n
         self.B = B
@@ -92,6 +97,7 @@ class LWBootstrapM:
         self.max_iter = max_iter
         self.bounds = bounds
         self.verbose = verbose
+        self.n_jobs = n_jobs
 
         # Default LW estimator if none provided
         if self.lw_estimator is None:
@@ -277,6 +283,67 @@ class LWBootstrapM:
 
         return v_star
 
+    def _bootstrap_d_estimates(self,
+                               v_j: np.ndarray,
+                               n: int,
+                               m_eval: int,
+                               d_current: float,
+                               k_n: int) -> np.ndarray:
+        """
+        Run bootstrap loop and return d* estimates.
+
+        Implements Steps 3-6 from Arteche and Orbe (2017): resampling the
+        locally standardized periodogram and computing bootstrap LW estimates.
+
+        Parameters
+        ----------
+        v_j : np.ndarray
+            Locally standardized periodogram
+        n : int
+            Sample size
+        m_eval : int
+            Bandwidth to evaluate
+        d_current : float
+            Current d estimate
+        k_n : int
+            Resampling width
+
+        Returns
+        -------
+        np.ndarray
+            Bootstrap d estimates of length B
+        """
+        d_star = np.zeros(self.B)
+
+        # Precompute frequency-related values
+        freqs = 2 * np.pi * np.arange(1, m_eval + 1) / n
+        freq_factor = freqs ** (-2 * d_current)
+
+        for b in range(self.B):
+            # Steps 3-4: Resample standardized periodogram
+            v_star = self._local_bootstrap_resample(v_j, k_n, m_eval, seed=b)
+
+            # Step 5: Generate bootstrap periodogram I*_j = lambda_j^(-2d_1) v*_j
+            I_star = v_star * freq_factor
+
+            # Prepare data for LW estimation
+            data = {
+                'n': n,
+                'm': m_eval,
+                'I_X': I_star,
+                'freqs': freqs,
+            }
+
+            # Step 6: Obtain bootstrap LW estimate d*_b by minimizing R(d)
+            def objective_func(d: float) -> float:
+                return self.lw_estimator.objective(d, data)
+
+            result = golden_section_search(objective_func,
+                                           brack=self.lw_estimator.bounds)
+            d_star[b] = result.x if result.success else np.nan
+
+        return d_star
+
     def _compute_bootstrap_mse(self,
                                X: np.ndarray,
                                m_eval: int,
@@ -311,31 +378,7 @@ class LWBootstrapM:
         v_j = self._locally_standardized_periodogram(X, d_init)
 
         # Generate B bootstrap samples and estimates
-        d_star = np.zeros(self.B)
-
-        for b in range(self.B):
-            # Steps 3-4: Resample standardized periodogram
-            v_star = self._local_bootstrap_resample(v_j, k_n, m_eval, seed=b)
-
-            # Step 5: Generate bootstrap periodogram I*_j = lambda_j^(-2d_1) v*_j
-            freqs = 2 * np.pi * np.arange(1, m_eval + 1) / n
-            I_star = v_star * (freqs**(-2 * d_init))
-
-            # Prepare data for LW estimation
-            data = {
-                'n': n,
-                'm': m_eval,
-                'I_X': I_star,
-                'freqs': freqs,
-            }
-
-            # Step 6: Obtain bootstrap LW estimate d*_b by minimizing R(d)
-            def objective_func(d: float) -> float:
-                return self.lw_estimator.objective(d, data)
-
-            result = golden_section_search(objective_func,
-                                           brack=self.lw_estimator.bounds)
-            d_star[b] = result.x if result.success else np.nan
+        d_star = self._bootstrap_d_estimates(v_j, n, m_eval, d_init, k_n)
 
         # Step 7: Compute MSE*(m) = (1/B) \sum (d*_b(m) - d_1)^2
         valid_estimates = d_star[~np.isnan(d_star)]
@@ -345,6 +388,49 @@ class LWBootstrapM:
             mse = np.inf
 
         return mse, d_star
+
+    def _evaluate_bandwidth(self,
+                            X: np.ndarray,
+                            m_eval: int,
+                            d_current: float,
+                            k_n: int,
+                            v_j: np.ndarray) -> Tuple[int, float]:
+        """
+        Evaluate bootstrap MSE for a single bandwidth.
+
+        This method is designed to be called in parallel across bandwidths.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Time series data
+        m_eval : int
+            Bandwidth to evaluate
+        d_current : float
+            Current d estimate
+        k_n : int
+            Resampling width
+        v_j : np.ndarray
+            Precomputed locally standardized periodogram
+
+        Returns
+        -------
+        Tuple[int, float]
+            (bandwidth, MSE) pair
+        """
+        n = len(X)
+
+        # Generate B bootstrap samples and estimates
+        d_star = self._bootstrap_d_estimates(v_j, n, m_eval, d_current, k_n)
+
+        # Step 7: Compute MSE*(m) = (1/B) \sum (d*_b(m) - d_current)^2
+        valid_estimates = d_star[~np.isnan(d_star)]
+        if len(valid_estimates) > 0:
+            mse = np.mean((valid_estimates - d_current)**2)
+        else:
+            mse = np.inf
+
+        return m_eval, mse
 
     def fit(self, X: np.ndarray, verbose: Optional[bool] = None):
         """
@@ -416,15 +502,20 @@ class LWBootstrapM:
                 print(f"Current d estimate: {d_current:.4f}")
 
             # Steps 3-7: Evaluate MSE for all candidate bandwidths m = m_min, ..., m_max
-            m_candidates = range(m_min, m_max + 1)
-            mse_values = {}
+            m_candidates = list(range(m_min, m_max + 1))
 
             if verbose:
                 print(f"Evaluating bandwidths from {m_min} to {m_max}...")
 
-            for m_eval in m_candidates:
-                mse, _ = self._compute_bootstrap_mse(X, m_eval, d_current, k_n)
-                mse_values[m_eval] = mse
+            # Precompute locally standardized periodogram (same for all bandwidths)
+            v_j = self._locally_standardized_periodogram(X, d_current)
+
+            # Parallel evaluation over bandwidths
+            results = Parallel(n_jobs=self.n_jobs)(
+                delayed(self._evaluate_bandwidth)(X, m, d_current, k_n, v_j)
+                for m in m_candidates
+            )
+            mse_values = dict(results)
 
             # Step 8: Choose \hat{m}_1 such that MSE*(\hat{m}_1) <= MSE*(m) for all m
             m_optimal = min(mse_values, key=mse_values.get)
