@@ -56,7 +56,7 @@ class ELW:
         self.mean_est = mean_est
         self.n_grid = n_grid
 
-    def objective(self, d: float, X: np.ndarray, m: int) -> float:
+    def objective(self, d: float, X: np.ndarray, m: int, x_fft=None) -> float:
         """
         Exact Local Whittle objective function of Shimotsu and Phillips (2005).
 
@@ -68,6 +68,8 @@ class ELW:
             Time series
         m : int
             Number of frequencies to use
+        x_fft : np.ndarray, optional
+            Pre-computed FFT of X. If provided, avoids recomputing FFT of X.
 
         Returns
         -------
@@ -78,7 +80,7 @@ class ELW:
 
         try:
             # Fractionally difference the original series
-            dx = fracdiff(X, d)
+            dx = fracdiff(X, d, x_fft=x_fft)
 
             # Compute FFT and periodogram
             fft_dx = np.fft.fft(dx)
@@ -157,9 +159,13 @@ class ELW:
             # Use the optimal m for ELW estimation
             m = selector.optimal_m_
 
+        # Pre-compute FFT for optimization
+        np2 = 1 << (2*n - 1).bit_length()
+        x_fft = np.fft.rfft(X, n=np2)
+
         # ELW objective function
         def objective_func(d: float) -> float:
-            return self.objective(d, X, m)
+            return self.objective(d, X, m, x_fft=x_fft)
 
         # Optimize using golden section search with bounds
         if self.n_grid > 0:
