@@ -23,7 +23,7 @@ git clone https://github.com/jrblevin/pyelw.git
 ### Quick Start Examples
 
 ```python
-from pyelw import LW, ELW, TwoStepELW
+from pyelw import LW, ELW, TwoStepELW, LWLFC
 
 series = load_data()   # Replace with your data loading code
 n = len(series)        # Length of time series
@@ -44,6 +44,10 @@ print(f"d_ELW = {elw.d_hat_}")
 # Two step ELW (Shimotsu, 2010)
 elw2s = TwoStepELW(trend_order=1).fit(series, m=m)
 print(f"d_2ELW = {elw2s.d_hat_}")
+
+# Modified LW for low frequency contamination (Hou and Perron, 2014)
+lwlfc = LWLFC().fit(series)
+print(f"d_LWLFC = {lwlfc.d_hat_}")
 
 # Automatic bandwidth selection using bootstrap MSE-optimal bandwidth
 lw_auto = LW().fit(series, m='auto')
@@ -82,6 +86,9 @@ the PyELW package.  Here is a BibTeX entry for the PyELW paper:
       (`taper='hc'`)
 - `ELW` - Exact local Whittle estimator of Shimotsu and Phillips (2005).
 - `TwoStepELW` - Two-step exact local Whittle estimator of Shimotsu (2010).
+- `LWLFC` - Modified local Whittle estimator for low frequency contaminations
+  of Hou and Perron (2014). Robust to random level shifts, deterministic
+  level shifts, and trends.
 
 Each of these classes provides a `fit()` method which requires the data (a
 NumPy ndarray) and the number of frequencies to use (or `m='auto'` for
@@ -148,6 +155,43 @@ from pyelw.simulate import arfima
 # Simulate ARFIMA(1,0.4,0) with phi=0.5
 data = arfima(n=1000, d=0.4, phi=0.5, sigma=1.0, seed=123)
 ```
+
+### LWLFC: Modified Local Whittle for Low Frequency Contaminations
+
+The `LWLFC` estimator implements the modified local Whittle method of Hou and
+Perron (2014), which provides consistent estimation of the memory parameter
+in the presence of low frequency contaminations (LFC) such as random level
+shifts, deterministic level shifts, and deterministic trends.
+
+These contaminations can cause standard local Whittle estimators to produce
+"spurious long memory" estimates, incorrectly suggesting persistence in
+short-memory processes. The LWLFC estimator addresses this by adding an
+auxiliary term to the pseudo spectral density that absorbs the contamination.
+
+```python
+from pyelw import LWLFC
+
+# Basic LWLFC estimation
+# Default bandwidth is n^0.8 (recommended by Hou and Perron)
+lwlfc = LWLFC().fit(series)
+print(f"d = {lwlfc.d_hat_:.4f} (SE: {lwlfc.se_:.4f})")
+print(f"theta = {lwlfc.theta_:.4f}")  # LFC signal-to-noise ratio
+
+# LWPLFC variant: also accounts for additive noise
+lwplfc = LWLFC(noise=True).fit(series)
+print(f"d = {lwplfc.d_hat_:.4f}")
+print(f"theta_u = {lwplfc.theta_:.4f}")       # LFC parameter
+print(f"theta_w = {lwplfc.theta_noise_:.4f}") # Noise parameter
+```
+
+The estimator jointly optimizes over the memory parameter d and an auxiliary
+parameter theta (the LFC signal-to-noise ratio). The auxiliary parameter is
+constrained to be non-negative and controls the influence of low frequency
+contaminations.
+
+**Bandwidth selection**: Hou and Perron (2014) recommend using larger
+bandwidths (m = n^0.8) when only LFC is present, but smaller bandwidths
+(m = n^0.6) when short-memory dynamics are also present.
 
 ### Automatic Bandwidth Selection
 
@@ -388,6 +432,10 @@ pytest -m "not slow"
 * Blevins, J.R. (2025).
   [PyELW: Exact Local Whittle Estimation for Long Memory Time Series in Python](https://jblevins.org/research/pyelw).
   Working Paper, The Ohio State University.
+
+* Hou, J. and P. Perron (2014). Modified Local Whittle Estimator for Long
+  Memory Processes in the Presence of Low Frequency (and Other) Contaminations.
+  _Journal of Econometrics_ 182, 309--328.
 
 * Hurvich, C. M., and W. W. Chen (2000). An Efficient Taper for Potentially
   Overdifferenced Long-Memory Time Series. _Journal of Time Series Analysis_
