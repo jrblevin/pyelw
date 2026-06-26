@@ -194,7 +194,7 @@ class TwoStepELW:
         r = np.log(g) - 2 * d * np.sum(np.log(lam_trunc)) / m
         return float(r.real)
 
-    def fit(self, X, m=None, verbose=False):
+    def fit(self, X, m=None, verbose=False, n_jobs=1):
         """
         Two-step exact local Whittle estimation of memory parameter d.
 
@@ -209,6 +209,10 @@ class TwoStepELW:
             - 'auto': Use bootstrap procedure to select optimal bandwidth
         verbose : bool, default=False
             Print diagnostic information during estimation.
+        n_jobs : int, default=1
+            Number of parallel jobs for the bootstrap bandwidth search when
+            m='auto' (ignored otherwise). Default 1 runs serially. -1 uses
+            all available cores; any positive integer sets the worker count.
 
         Returns
         -------
@@ -231,7 +235,8 @@ class TwoStepELW:
         elif m == 'auto':
             # Use bootstrap MSE bandwidth selection to find optimal m
             from .lw_bootstrap_m import LWBootstrapM
-            selector = LWBootstrapM(bounds=self.bounds, verbose=verbose)
+            selector = LWBootstrapM(bounds=self.bounds, verbose=verbose,
+                                    n_jobs=n_jobs)
             selector.fit(X_detrended)
 
             # Store bootstrap-specific attributes
@@ -296,7 +301,8 @@ class TwoStepELW:
                  bounds: Optional[Tuple[float, float]] = None,
                  taper: Optional[str] = None,
                  trend_order: Optional[int] = None,
-                 verbose: Optional[bool] = False) -> Dict[str, Any]:
+                 verbose: Optional[bool] = False,
+                 n_jobs: int = 1) -> Dict[str, Any]:
         """
         Two-step exact local Whittle estimation of memory parameter d.
 
@@ -317,6 +323,10 @@ class TwoStepELW:
             overrides constructor trend_order.
         verbose : bool, optional
             Print diagnostic information
+        n_jobs : int, default=1
+            Number of parallel jobs for the bootstrap bandwidth search when
+            m='auto' (ignored otherwise). Default 1 runs serially. -1 uses
+            all available cores; any positive integer sets the worker count.
 
         Returns
         -------
@@ -338,7 +348,7 @@ class TwoStepELW:
 
         try:
             # Fit the model
-            self.fit(X, m=m, verbose=verbose)
+            self.fit(X, m=m, verbose=verbose, n_jobs=n_jobs)
 
             # Return results as dictionary for backward compatibility
             return {

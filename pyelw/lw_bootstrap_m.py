@@ -36,9 +36,10 @@ class LWBootstrapM:
         used if lw_estimator is None (when creating own LW estimator).
     verbose : bool, default=False
         Print progress information
-    n_jobs : int, default=-1
-        Number of parallel jobs for bandwidth evaluation. -1 means use all
-        available cores. Set to 1 to disable parallelization.
+    n_jobs : int, default=1
+        Number of parallel jobs (joblib workers) for the bootstrap MSE
+        bandwidth search. Default 1 runs serially. -1 uses all available
+        cores; any positive integer sets the worker count.
 
     Attributes
     ----------
@@ -86,7 +87,7 @@ class LWBootstrapM:
                  max_iter=10,
                  bounds=(-1.0, 2.2),
                  verbose=False,
-                 n_jobs=-1):
+                 n_jobs=1):
         self.lw_estimator = lw_estimator
         self.k_n = k_n
         self.B = B

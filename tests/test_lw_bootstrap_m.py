@@ -1,7 +1,8 @@
 import pytest
+import inspect
 import numpy as np
 
-from pyelw import LW
+from pyelw import LW, ELW, TwoStepELW
 from pyelw.lw_bootstrap_m import LWBootstrapM
 from pyelw.simulate import arfima
 
@@ -607,3 +608,51 @@ def test_edge_case_m_min_equals_m_max(selector, simple_arfima_data):
 
     # Should converge immediately
     assert selector.optimal_m_ == 10
+
+
+#
+# n_jobs parallelization tests
+#
+
+def test_default_n_jobs_is_one():
+    """LWBootstrapM defaults to serial execution (scikit-learn convention)."""
+    assert LWBootstrapM().n_jobs == 1
+
+
+@pytest.mark.parametrize("estimator", [LW, ELW, TwoStepELW])
+@pytest.mark.parametrize("method_name", ["fit", "estimate"])
+def test_estimator_n_jobs_default_is_one(estimator, method_name):
+    """fit()/estimate() of each auto-capable estimator default to n_jobs=1."""
+    sig = inspect.signature(getattr(estimator, method_name))
+    assert "n_jobs" in sig.parameters
+    assert sig.parameters["n_jobs"].default == 1
+
+
+def test_n_jobs_invariance():
+    """Parallel and serial bootstrap searches must give identical results.
+
+    Each bootstrap replication is seeded by its index (seed=b), and joblib
+    preserves input order, so the optimal bandwidth and estimate must not
+    depend on the worker count.
+    """
+    series = arfima(n=150, d=0.3, phi=0.0, seed=7)
+
+    common = dict(k_n=2, B=20, m_min=5, m_max=20, m_init=8, max_iter=3)
+    serial = LWBootstrapM(n_jobs=1, **common).fit(series)
+    parallel = LWBootstrapM(n_jobs=2, **common).fit(series)
+
+    assert serial.optimal_m_ == parallel.optimal_m_
+    assert serial.d_hat_ == parallel.d_hat_
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("estimator", [LW, ELW, TwoStepELW])
+def test_fit_auto_n_jobs_smoke(estimator):
+    """fit(m='auto', n_jobs=2) runs end-to-end and returns a finite estimate."""
+    series = arfima(n=120, d=0.3, phi=0.0, seed=11)
+
+    est = estimator().fit(series, m='auto', n_jobs=2)
+
+    assert np.isfinite(est.d_hat_)
+    assert hasattr(est, 'bootstrap_m_optimal_m_')
+    assert est.m_ == est.bootstrap_m_optimal_m_

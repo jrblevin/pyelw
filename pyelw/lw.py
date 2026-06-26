@@ -394,7 +394,7 @@ class LW:
         except (OverflowError, ZeroDivisionError, ValueError, KeyError):
             return np.float64(np.inf)
 
-    def fit(self, X, m=None, verbose=False):
+    def fit(self, X, m=None, verbose=False, n_jobs=1):
         """
         Local Whittle estimation of memory parameter d.
 
@@ -409,6 +409,10 @@ class LW:
             - 'auto': Use bootstrap procedure to select optimal bandwidth
         verbose : bool, default=False
             Print diagnostic information during fitting.
+        n_jobs : int, default=1
+            Number of parallel jobs for the bootstrap bandwidth search when
+            m='auto' (ignored otherwise). Default 1 runs serially. -1 uses
+            all available cores; any positive integer sets the worker count.
 
         Returns
         -------
@@ -427,7 +431,8 @@ class LW:
 
             # Create a plain LW estimator for bootstrap (no taper)
             # Bootstrap is only defined for standard LW
-            selector = LWBootstrapM(bounds=self.bounds, verbose=verbose)
+            selector = LWBootstrapM(bounds=self.bounds, verbose=verbose,
+                                    n_jobs=n_jobs)
             selector.fit(X)
 
             # Store bootstrap-specific attributes
@@ -557,7 +562,8 @@ class LW:
                  bounds: Optional[Tuple[float, float]] = None,
                  taper: Optional[str] = None,
                  diff: Optional[int] = 1,
-                 verbose: Optional[bool] = False) -> Dict[str, Any]:
+                 verbose: Optional[bool] = False,
+                 n_jobs: int = 1) -> Dict[str, Any]:
         """
         Local Whittle estimation of memory parameter d.
 
@@ -581,6 +587,10 @@ class LW:
             Number of times to difference for HC taper (default 1)
         verbose : bool, optional
             Print diagnostic information
+        n_jobs : int, default=1
+            Number of parallel jobs for the bootstrap bandwidth search when
+            m='auto' (ignored otherwise). Default 1 runs serially. -1 uses
+            all available cores; any positive integer sets the worker count.
 
         Returns
         -------
@@ -602,7 +612,7 @@ class LW:
 
         try:
             # Fit the model
-            self.fit(X, m=m, verbose=verbose)
+            self.fit(X, m=m, verbose=verbose, n_jobs=n_jobs)
 
             # Return results as dictionary for backward compatibility
             return {

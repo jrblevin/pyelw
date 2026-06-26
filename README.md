@@ -13,6 +13,7 @@ PyELW requires:
 
 - Python (>= 3.9)
 - NumPy (tested with 2.3.2)
+- joblib (>= 1.5.2), for parallel bootstrap bandwidth selection
 
 You can check the latest sources with the command
 
@@ -220,6 +221,19 @@ Selected bandwidth: m = 142
 Estimated d: 0.0319 (SE: 0.0411)
 ```
 
+The bootstrap bandwidth search evaluates each candidate bandwidth
+independently, so it can be run in parallel across CPU cores via the
+`n_jobs` argument (using [joblib](https://joblib.readthedocs.io/)). By
+default `n_jobs=1` (serial); pass `n_jobs=-1` to use all available cores:
+
+```python
+# Parallel bootstrap bandwidth search across all cores
+lw = LW().fit(series, m='auto', n_jobs=-1)
+```
+
+Results are independent of `n_jobs`: each bootstrap replication is seeded by
+its index, so `n_jobs=1` and `n_jobs=-1` produce identical estimates.
+
 ## Examples
 
 ### Example 1: Nile River Level Data
@@ -294,6 +308,7 @@ print(f"95% CI: [{ci_lower:.4f}, {ci_upper:.4f}]")
 ```
 
 Output:
+
 ```
 Simulating ARFIMA(0,0.3,0) with n=5000 observations...
 True d:           0.3

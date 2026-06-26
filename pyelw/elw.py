@@ -107,7 +107,7 @@ class ELW:
         except (OverflowError, ZeroDivisionError, ValueError):
             return np.float64(np.inf)
 
-    def fit(self, X, m=None, verbose=False):
+    def fit(self, X, m=None, verbose=False, n_jobs=1):
         """
         Exact local Whittle estimation of memory parameter d.
 
@@ -122,6 +122,10 @@ class ELW:
             - 'auto': Use bootstrap procedure to select optimal bandwidth
         verbose : bool, default=False
             Print diagnostic information during fitting.
+        n_jobs : int, default=1
+            Number of parallel jobs for the bootstrap bandwidth search when
+            m='auto' (ignored otherwise). Default 1 runs serially. -1 uses
+            all available cores; any positive integer sets the worker count.
 
         Returns
         -------
@@ -147,7 +151,8 @@ class ELW:
         elif m == 'auto':
             # Use bootstrap MSE bandwidth selection to find optimal m
             from .lw_bootstrap_m import LWBootstrapM
-            selector = LWBootstrapM(bounds=self.bounds, verbose=verbose)
+            selector = LWBootstrapM(bounds=self.bounds, verbose=verbose,
+                                    n_jobs=n_jobs)
             selector.fit(X)
 
             # Store bootstrap-specific attributes
@@ -223,7 +228,8 @@ class ELW:
                  m = None,
                  bounds: Optional[Tuple[float, float]] = None,
                  mean_est: Optional[str] = None,
-                 verbose: Optional[bool] = False) -> Dict[str, Any]:
+                 verbose: Optional[bool] = False,
+                 n_jobs: int = 1) -> Dict[str, Any]:
         """
         Exact local Whittle estimation of memory parameter d.
 
@@ -245,6 +251,10 @@ class ELW:
             constructor mean_est. One of ['mean', 'init', 'none'].
         verbose : bool, optional
             Print diagnostic information
+        n_jobs : int, default=1
+            Number of parallel jobs for the bootstrap bandwidth search when
+            m='auto' (ignored otherwise). Default 1 runs serially. -1 uses
+            all available cores; any positive integer sets the worker count.
 
         Returns
         -------
@@ -263,7 +273,7 @@ class ELW:
 
         try:
             # Fit the model
-            self.fit(X, m=m, verbose=verbose)
+            self.fit(X, m=m, verbose=verbose, n_jobs=n_jobs)
 
             # Return results as dictionary for backward compatibility
             return {
