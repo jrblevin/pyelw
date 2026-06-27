@@ -96,19 +96,13 @@ class LW:
         if max_j is None:
             max_j = n - 1
 
-        # Create frequency indices and time indices
+        # The sum w_j = (1/sqrt(2*pi*n)) * sum_{t=1}^{n} y_t exp(i lambda_j t),
+        # with lambda_j = 2*pi*j/n, is a (frequency-shifted) inverse DFT of y
+        # and can be evaluated for all j at once with the FFT in O(n log n).
         j = np.arange(max_j + 1)
-        t = np.arange(1, n + 1)
-
-        # Compute lambda_j matrix: 2 * pi * j / n for each j
-        lambda_j = 2 * np.pi * j[:, np.newaxis] / n
-
-        # Compute complex exponentials for all (j, t) combinations
-        # Multiply by data and sum over t
-        w = np.sum(y * np.exp(1j * lambda_j * t), axis=1)
-
-        # Normalize
-        w /= np.sqrt(2 * np.pi * n)
+        A = np.fft.ifft(y) * n
+        phase = np.exp(1j * 2 * np.pi * j / n)
+        w = phase * A[:max_j + 1] / np.sqrt(2 * np.pi * n)
 
         return w
 
@@ -142,11 +136,13 @@ class LW:
         if taper == 'kolmogorov':
 
             # Zhurbenko-Kolmogorov taper (Velasco, 1999, p. 97)
-            # Implementation follows convolution calculation by Shimotsu in veltaper.m
             pp = int((n + 2) / 3)
-            h = np.ones(pp)
             h2 = np.concatenate([np.arange(1, pp + 1), np.arange(pp - 1, 0, -1)])
-            h3 = np.convolve(h, h2)
+            csum = np.concatenate([[0.0], np.cumsum(h2.astype(np.float64))])
+            kk = np.arange(pp + len(h2) - 1)
+            lo = np.maximum(0, kk - pp + 1)
+            hi = np.minimum(kk, len(h2) - 1)
+            h3 = csum[hi + 1] - csum[lo]
             # Pad with zeros if needed
             if len(h3) < n:
                 h = np.concatenate([h3, np.zeros(n - len(h3))])
@@ -181,7 +177,6 @@ class LW:
             # h_t = 0.5*(1 - exp(i * 2 * pi * (t - 1/2) / n)).
             # This creates a complex-valued taper, multiplied with real data
             # to produce complex-valued tapered data (eq. 4).
-            #
             t = np.arange(1, n+1, dtype=np.float64)
             h = 0.5 * (1 - np.exp(1j * 2 * np.pi * (t - 0.5) / n))
             X_tapered = h * X_diff
