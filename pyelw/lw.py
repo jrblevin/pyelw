@@ -200,8 +200,12 @@ class LW:
             # Subsample with appropriate step p
             if taper == 'bartlett':
                 p = 2  # Bartlett is equivalent to Zhurbenko p=2
+            elif taper == 'kolmogorov':
+                p = 3  # order-3 Zhurbenko-Kolmogorov taper
             else:
-                p = 3  # Kolmogorov and cosine use p=3
+                # Cosine bell trend-removal order is 1, so p=3
+                # here is the subsampling step, not trend order.
+                p = 3
 
             j = np.arange(p, m+1, p)  # 1-based indices
             freqs = 2 * np.pi * j / n
